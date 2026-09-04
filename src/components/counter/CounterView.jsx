@@ -1,0 +1,288 @@
+import React, { useState } from 'react';
+import { useOrder } from '../../context/OrderContext';
+import { formatCurrency, formatTime, formatDateTime, STATUS_MAP, PAYMENT_METHODS } from '../../utils/formatters';
+import { Printer, CheckCircle2, AlertCircle, Clock, Search, Filter, Phone, MapPin, DollarSign, ChefHat, RefreshCw } from 'lucide-react';
+
+export const CounterView = () => {
+  const { orders, updateOrderStatus, triggerPrintTicket } = useOrder();
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Pending payments (waiting counter confirmation)
+  const pendingOrders = orders.filter(o => o.status === 'aguardando_pagamento');
+
+  // Filtered orders list
+  const filteredOrders = orders.filter(order => {
+    const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
+    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          order.customerPhone.includes(searchTerm);
+    return matchesStatus && matchesSearch;
+  });
+
+  const handleConfirmPayment = (order) => {
+    // Confirm payment -> change to 'pagamento_confirmado' which sends order straight to kitchen!
+    updateOrderStatus(order.id, 'pagamento_confirmado');
+  };
+
+  return (
+    <div className="min-h-screen pb-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        {/* Balcão Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+          <div>
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold uppercase mb-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+              <span>Painel do Caixa & Balcão</span>
+            </div>
+            <h1 className="text-3xl font-extrabold text-white">Gestão de Pedidos & Pagamentos</h1>
+            <p className="text-slate-400 text-sm mt-1">
+              Confirme o pagamento dos clientes para liberar a comanda automaticamente para a cozinha.
+            </p>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="flex items-center space-x-4">
+            <div className="bg-slate-950 px-4 py-3 rounded-2xl border border-slate-800 text-center">
+              <div className="text-xs text-slate-500 uppercase font-bold">Aguardando Pagto</div>
+              <div className="text-2xl font-black text-amber-400">{pendingOrders.length}</div>
+            </div>
+            <div className="bg-slate-950 px-4 py-3 rounded-2xl border border-slate-800 text-center">
+              <div className="text-xs text-slate-500 uppercase font-bold">Total Hoje</div>
+              <div className="text-2xl font-black text-emerald-400">
+                {formatCurrency(orders.reduce((acc, o) => acc + o.total, 0))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 1: URGENT PENDING PAYMENTS */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-white flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5 text-amber-400" />
+              <span>Solicitações Aguardando Caixa ({pendingOrders.length})</span>
+            </h2>
+            {pendingOrders.length > 0 && (
+              <span className="text-xs font-bold text-amber-400 animate-pulse">
+                • Novos pedidos aguardando ação no balcão
+              </span>
+            )}
+          </div>
+
+          {pendingOrders.length === 0 ? (
+            <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-8 text-center text-slate-400 text-sm">
+              Nenhum pedido aguardando confirmação no balcão no momento.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {pendingOrders.map((order) => (
+                <div
+                  key={order.id}
+                  className="bg-slate-900 border-2 border-amber-500/50 rounded-3xl p-5 shadow-2xl flex flex-col justify-between space-y-4 hover:border-amber-400 transition-all relative overflow-hidden"
+                >
+                  {/* Top Badge */}
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg font-black text-amber-400">{order.id}</span>
+                        <span className="text-xs text-slate-400 font-semibold">{formatTime(order.createdAt)}</span>
+                      </div>
+                      <h3 className="font-extrabold text-white text-base mt-0.5">{order.customerName}</h3>
+                      <p className="text-xs text-slate-400">{order.customerPhone}</p>
+                    </div>
+
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500 text-slate-950 shadow-md uppercase">
+                      Aguardando Pagamento
+                    </span>
+                  </div>
+
+                  {/* Delivery Info */}
+                  <div className="text-xs bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <div className="font-bold text-slate-300">
+                      TIPO: {order.deliveryType === 'delivery' ? '🛵 DELIVERY' : '🛍️ RETIRADA'}
+                    </div>
+                    {order.deliveryType === 'delivery' && (
+                      <div className="text-slate-400 truncate">End: {order.address}</div>
+                    )}
+                    <div className="text-amber-400 font-bold">
+                      FORMA PAGTO: {PAYMENT_METHODS[order.paymentMethod]?.label || order.paymentMethod}
+                    </div>
+                  </div>
+
+                  {/* Items Summary */}
+                  <div className="space-y-1.5 border-t border-b border-slate-800/80 py-3 text-xs">
+                    <div className="font-bold text-slate-400 uppercase text-[10px]">Itens Solicitados:</div>
+                    {order.items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-slate-200">
+                        <span>{item.quantity}x {item.name}</span>
+                        <span className="font-bold">{formatCurrency(item.subtotal)}</span>
+                      </div>
+                    ))}
+                    {order.observation && (
+                      <p className="text-[11px] text-amber-300 font-semibold bg-amber-500/10 p-2 rounded-lg mt-2">
+                        Obs: {order.observation}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Total & Action Buttons */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-base font-black">
+                      <span className="text-slate-300">Valor Total:</span>
+                      <span className="text-amber-400 text-xl">{formatCurrency(order.total)}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {/* Print Ticket Balcão */}
+                      <button
+                        onClick={() => triggerPrintTicket(order, 'counter')}
+                        className="py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center space-x-1.5"
+                      >
+                        <Printer className="w-4 h-4 text-amber-400" />
+                        <span>Imprimir Balcão</span>
+                      </button>
+
+                      {/* Confirm Payment & Send to Kitchen */}
+                      <button
+                        onClick={() => handleConfirmPayment(order)}
+                        className="py-2.5 px-3 rounded-xl bg-emerald-500 text-slate-950 font-extrabold text-xs hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                        <span>Confirmar Pagto</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* SECTION 2: ALL ORDERS & HISTORY */}
+        <div className="space-y-4 pt-4 border-t border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h2 className="text-xl font-bold text-white">Todos os Pedidos do Dia</h2>
+
+            {/* Filter controls */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Search */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Buscar nº ou cliente..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-500 outline-none w-48"
+                />
+              </div>
+
+              {/* Status Select */}
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="bg-slate-900 border border-slate-800 text-xs text-white rounded-xl px-3 py-2 focus:border-amber-500 outline-none font-semibold"
+              >
+                <option value="all">Todos os Status</option>
+                <option value="aguardando_pagamento">Aguardando Pagamento</option>
+                <option value="pagamento_confirmado">Pagamento Confirmado (Cozinha)</option>
+                <option value="em_preparo">Em Preparo</option>
+                <option value="pronto">Pronto</option>
+                <option value="entregue">Concluído</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950 text-slate-400 font-bold uppercase border-b border-slate-800">
+                  <tr>
+                    <th className="p-4">Pedido / Hora</th>
+                    <th className="p-4">Cliente</th>
+                    <th className="p-4">Tipo & Endereço</th>
+                    <th className="p-4">Pagamento</th>
+                    <th className="p-4">Status Atual</th>
+                    <th className="p-4 text-right">Total</th>
+                    <th className="p-4 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-medium">
+                  {filteredOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-slate-500">
+                        Nenhum pedido encontrado no histórico.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredOrders.map((order) => {
+                      const st = STATUS_MAP[order.status] || STATUS_MAP.aguardando_pagamento;
+                      return (
+                        <tr key={order.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="p-4">
+                            <div className="font-extrabold text-amber-400 text-sm">{order.id}</div>
+                            <div className="text-slate-500 text-[11px]">{formatDateTime(order.createdAt)}</div>
+                          </td>
+
+                          <td className="p-4">
+                            <div className="font-bold text-white">{order.customerName}</div>
+                            <div className="text-slate-400 text-[11px]">{order.customerPhone}</div>
+                          </td>
+
+                          <td className="p-4 text-slate-300">
+                            <div className="font-bold uppercase text-[11px]">
+                              {order.deliveryType === 'delivery' ? '🛵 Delivery' : '🛍️ Retirada'}
+                            </div>
+                            <div className="text-slate-400 text-[11px] truncate max-w-xs">{order.address}</div>
+                          </td>
+
+                          <td className="p-4 text-slate-300">
+                            <span className="font-semibold">{PAYMENT_METHODS[order.paymentMethod]?.label || order.paymentMethod}</span>
+                          </td>
+
+                          <td className="p-4">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${st.color}`}>
+                              {st.label}
+                            </span>
+                          </td>
+
+                          <td className="p-4 text-right font-extrabold text-white text-sm">
+                            {formatCurrency(order.total)}
+                          </td>
+
+                          <td className="p-4 text-center space-x-1.5">
+                            {/* Print Ticket */}
+                            <button
+                              onClick={() => triggerPrintTicket(order, 'counter')}
+                              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all inline-flex items-center"
+                              title="Imprimir Comprovante Balcão"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Print Kitchen Ticket */}
+                            <button
+                              onClick={() => triggerPrintTicket(order, 'kitchen')}
+                              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 transition-all inline-flex items-center"
+                              title="Imprimir Ficha Cozinha"
+                            >
+                              <ChefHat className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
