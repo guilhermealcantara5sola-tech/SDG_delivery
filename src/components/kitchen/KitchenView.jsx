@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useOrder } from '../../context/OrderContext';
 import { formatTime, formatCurrency } from '../../utils/formatters';
 import { ChefHat, Printer, Play, CheckCircle2, Clock, CheckCheck, AlertTriangle } from 'lucide-react';
@@ -10,6 +10,32 @@ export const KitchenView = () => {
   const newOrders = orders.filter(o => o.status === 'pagamento_confirmado');
   const inPreparation = orders.filter(o => o.status === 'em_preparo');
   const readyOrders = orders.filter(o => o.status === 'pronto');
+
+  // Auto-print setting on the kitchen screen
+  const [autoPrintIncoming, setAutoPrintIncoming] = useState(() => {
+    const saved = localStorage.getItem('sdg_autoprint_incoming_kitchen');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+
+  const printedOrderIds = useRef(new Set());
+
+  useEffect(() => {
+    if (!autoPrintIncoming) return;
+    newOrders.forEach(order => {
+      if (!printedOrderIds.current.has(order.id)) {
+        printedOrderIds.current.add(order.id);
+        triggerPrintTicket(order, 'kitchen');
+      }
+    });
+  }, [newOrders, autoPrintIncoming]);
+
+  const toggleAutoPrintIncoming = () => {
+    setAutoPrintIncoming(prev => {
+      const next = !prev;
+      localStorage.setItem('sdg_autoprint_incoming_kitchen', JSON.stringify(next));
+      return next;
+    });
+  };
 
   return (
     <div className="min-h-screen pb-20">
@@ -28,7 +54,34 @@ export const KitchenView = () => {
             </p>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Auto-print toggle for kitchen */}
+            <div
+              onClick={toggleAutoPrintIncoming}
+              className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl border cursor-pointer select-none transition-all ${
+                autoPrintIncoming
+                  ? 'bg-blue-500/10 border-blue-500/40 text-blue-300'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+              title="Ao ativar, novos pedidos confirmados abrirão a impressão da ficha automaticamente nesta tela"
+            >
+              <input
+                type="checkbox"
+                checked={autoPrintIncoming}
+                onChange={toggleAutoPrintIncoming}
+                className="w-4 h-4 rounded text-blue-500 bg-slate-900 border-slate-700 focus:ring-blue-500 cursor-pointer accent-blue-500"
+              />
+              <div className="text-xs font-bold">
+                <div className="flex items-center space-x-1">
+                  <Printer className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Auto-imprimir na Cozinha</span>
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {autoPrintIncoming ? '🟢 Ativado nesta tela' : '⚪ Desativado'}
+                </div>
+              </div>
+            </div>
+
             <div className="bg-slate-950 px-4 py-2.5 rounded-2xl border border-slate-800 text-center">
               <div className="text-[10px] text-slate-500 uppercase font-bold">Novos Pedidos</div>
               <div className="text-xl font-black text-blue-400">{newOrders.length}</div>

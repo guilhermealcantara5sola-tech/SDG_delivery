@@ -20,9 +20,28 @@ export const CounterView = () => {
     return matchesStatus && matchesSearch;
   });
 
+  // Auto-print kitchen ticket setting (persisted in localStorage)
+  const [autoPrintKitchen, setAutoPrintKitchen] = useState(() => {
+    const saved = localStorage.getItem('sdg_autoprint_kitchen');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  const toggleAutoPrintKitchen = () => {
+    setAutoPrintKitchen(prev => {
+      const next = !prev;
+      localStorage.setItem('sdg_autoprint_kitchen', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const handleConfirmPayment = (order) => {
-    // Confirm payment -> change to 'pagamento_confirmado' which sends order straight to kitchen!
+    // 1. Confirm payment -> update status to 'pagamento_confirmado' (sends to kitchen)
     updateOrderStatus(order.id, 'pagamento_confirmado');
+
+    // 2. If auto-print kitchen option is checked, trigger kitchen ticket immediately!
+    if (autoPrintKitchen) {
+      triggerPrintTicket(order, 'kitchen');
+    }
   };
 
   return (
@@ -42,12 +61,40 @@ export const CounterView = () => {
             </p>
           </div>
 
-          {/* Quick Metrics */}
-          <div className="flex items-center space-x-4">
+          {/* Quick Metrics & Auto-Print Toggle */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Auto-Print Kitchen Toggle */}
+            <div
+              onClick={toggleAutoPrintKitchen}
+              className={`flex items-center space-x-2.5 px-4 py-3 rounded-2xl border cursor-pointer select-none transition-all ${
+                autoPrintKitchen
+                  ? 'bg-amber-500/10 border-amber-500/40 text-amber-300'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+              title="Ao marcar, todo pagamento confirmado abrirá automaticamente a impressão da ficha da cozinha"
+            >
+              <input
+                type="checkbox"
+                checked={autoPrintKitchen}
+                onChange={toggleAutoPrintKitchen}
+                className="w-4 h-4 rounded text-amber-500 bg-slate-900 border-slate-700 focus:ring-amber-500 cursor-pointer accent-amber-500"
+              />
+              <div className="text-xs font-bold">
+                <div className="flex items-center space-x-1">
+                  <ChefHat className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Imprimir Cozinha Auto</span>
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {autoPrintKitchen ? '🟢 Ativado ao confirmar' : '⚪ Desativado'}
+                </div>
+              </div>
+            </div>
+
             <div className="bg-slate-950 px-4 py-3 rounded-2xl border border-slate-800 text-center">
               <div className="text-xs text-slate-500 uppercase font-bold">Aguardando Pagto</div>
               <div className="text-2xl font-black text-amber-400">{pendingOrders.length}</div>
             </div>
+
             <div className="bg-slate-950 px-4 py-3 rounded-2xl border border-slate-800 text-center">
               <div className="text-xs text-slate-500 uppercase font-bold">Total Hoje</div>
               <div className="text-2xl font-black text-emerald-400">
@@ -134,24 +181,37 @@ export const CounterView = () => {
                       <span className="text-amber-400 text-xl">{formatCurrency(order.total)}</span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      {/* Print Ticket Balcão */}
-                      <button
-                        onClick={() => triggerPrintTicket(order, 'counter')}
-                        className="py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center space-x-1.5"
-                      >
-                        <Printer className="w-4 h-4 text-amber-400" />
-                        <span>Imprimir Balcão</span>
-                      </button>
-
+                    <div className="space-y-2 pt-1">
                       {/* Confirm Payment & Send to Kitchen */}
                       <button
                         onClick={() => handleConfirmPayment(order)}
-                        className="py-2.5 px-3 rounded-xl bg-emerald-500 text-slate-950 font-extrabold text-xs hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-1.5"
+                        className="w-full py-3 px-4 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 active:scale-95"
                       >
-                        <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-                        <span>Confirmar Pagto</span>
+                        <CheckCircle2 className="w-4 h-4 stroke-[3]" />
+                        <span>Confirmar Pagto {autoPrintKitchen ? '+ Imprimir na Cozinha' : ''}</span>
                       </button>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Print Ticket Balcão */}
+                        <button
+                          onClick={() => triggerPrintTicket(order, 'counter')}
+                          className="py-2 px-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center space-x-1.5"
+                          title="Imprimir Cupom do Caixa / Cliente"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Cupom Balcão</span>
+                        </button>
+
+                        {/* Print Ticket Kitchen */}
+                        <button
+                          onClick={() => triggerPrintTicket(order, 'kitchen')}
+                          className="py-2 px-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center space-x-1.5"
+                          title="Imprimir Ficha de Produção da Cozinha"
+                        >
+                          <ChefHat className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Ficha Cozinha</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
