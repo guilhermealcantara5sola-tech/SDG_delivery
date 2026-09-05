@@ -37,57 +37,62 @@ export const ProductModal = ({ product, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md">
+      <div className="relative w-full max-w-lg bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl max-h-[92vh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
         
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-9 h-9 bg-slate-950/80 text-slate-300 rounded-full flex items-center justify-center hover:bg-slate-800 hover:text-white transition-all"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* Product Image */}
-        <div className="relative h-56 w-full bg-slate-950">
+        {/* Product Image Header */}
+        <div className="relative h-40 sm:h-48 w-full bg-slate-950 flex-shrink-0">
           <img
             src={product.image}
             alt={product.name}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
+          
+          {/* Mobile Handle */}
+          <div className="sm:hidden absolute top-2.5 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-white/40 rounded-full"></div>
+
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 z-10 w-8 h-8 bg-slate-950/80 text-slate-300 rounded-full flex items-center justify-center hover:bg-slate-800 hover:text-white transition-all shadow-md"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+        {/* Scrollable Options Content */}
+        <div className="p-5 sm:p-6 space-y-5 flex-1 overflow-y-auto">
           <div>
-            <h2 className="text-2xl font-extrabold text-white">{product.name}</h2>
-            <p className="text-slate-400 text-sm mt-1 leading-relaxed">{product.description}</p>
-            <div className="text-amber-400 font-extrabold text-xl mt-3">
-              {formatCurrency(product.price)}
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-xl sm:text-2xl font-black text-white">{product.name}</h2>
+              <div className="text-emerald-400 font-black text-lg sm:text-xl flex-shrink-0">
+                {formatCurrency(product.price)}
+              </div>
             </div>
+            <p className="text-slate-400 text-xs sm:text-sm mt-1 leading-relaxed">{product.description}</p>
           </div>
 
-          {/* Options Groups */}
+          {/* Options Groups (Ponto da carne, borda de pizza, adicionais...) */}
           {product.options && product.options.map((group, idx) => (
-            <div key={idx} className="space-y-3 bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
-              <div className="flex justify-between items-center">
-                <h4 className="text-sm font-bold text-slate-200">{group.name}</h4>
-                <span className="text-[10px] text-slate-400 uppercase font-semibold">
-                  {group.type === 'radio' ? 'Escolha 1 opção' : 'Opcional'}
+            <div key={idx} className="space-y-2.5 bg-slate-950/80 p-3.5 sm:p-4 rounded-2xl border border-slate-800">
+              <div className="flex justify-between items-center pb-1">
+                <h4 className="text-xs sm:text-sm font-black text-slate-200 uppercase tracking-wide">{group.name}</h4>
+                <span className="text-[10px] text-amber-400 font-bold uppercase bg-amber-500/10 px-2 py-0.5 rounded-md">
+                  {group.type === 'radio' ? 'Escolha 1' : 'Opcional'}
                 </span>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {group.items.map((item, itemIdx) => {
                   const isSelected = selectedOptions.some(i => i.name === item.name);
                   return (
                     <div
                       key={itemIdx}
                       onClick={() => handleOptionToggle(group, item)}
-                      className={`flex items-center justify-between p-3 rounded-xl cursor-pointer border transition-all text-xs font-semibold ${
+                      className={`flex items-center justify-between p-3 rounded-xl cursor-pointer border transition-all text-xs font-bold active:scale-[0.98] ${
                         isSelected
-                          ? 'bg-amber-500/10 border-amber-500 text-amber-300'
+                          ? 'bg-amber-500/15 border-amber-500 text-amber-300 ring-1 ring-amber-500/30'
                           : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
                       }`}
                     >
@@ -101,7 +106,7 @@ export const ProductModal = ({ product, onClose }) => {
                       </div>
 
                       {item.price > 0 && (
-                        <span className="text-amber-400 font-bold">+ {formatCurrency(item.price)}</span>
+                        <span className="text-emerald-400 font-extrabold">+ {formatCurrency(item.price)}</span>
                       )}
                     </div>
                   );
@@ -111,8 +116,8 @@ export const ProductModal = ({ product, onClose }) => {
           ))}
 
           {/* Observation */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+          <div className="space-y-1.5">
+            <label className="text-xs font-extrabold text-slate-300 uppercase tracking-wider">
               Observações do Pedido
             </label>
             <textarea
@@ -125,21 +130,21 @@ export const ProductModal = ({ product, onClose }) => {
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between gap-4">
+        {/* Sticky Footer Actions (Always Visible on Mobile) */}
+        <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between gap-3 flex-shrink-0">
           
           {/* Quantity Controls */}
-          <div className="flex items-center space-x-3 bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl">
+          <div className="flex items-center space-x-3 bg-slate-900 border border-slate-800 px-3 py-2.5 rounded-xl">
             <button
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="text-slate-400 hover:text-white p-1"
+              className="text-slate-400 hover:text-white p-0.5"
             >
               <Minus className="w-4 h-4" />
             </button>
-            <span className="font-extrabold text-white text-sm w-5 text-center">{quantity}</span>
+            <span className="font-black text-white text-sm w-4 text-center">{quantity}</span>
             <button
               onClick={() => setQuantity(quantity + 1)}
-              className="text-slate-400 hover:text-white p-1"
+              className="text-slate-400 hover:text-white p-0.5"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -148,11 +153,11 @@ export const ProductModal = ({ product, onClose }) => {
           {/* Add Button */}
           <button
             onClick={handleAddToCart}
-            className="flex-1 flex items-center justify-between px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+            className="flex-1 flex items-center justify-between px-4 sm:px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-xs sm:text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95"
           >
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5">
               <ShoppingBag className="w-4 h-4" />
-              <span>Adicionar ao Pedido</span>
+              <span>Adicionar à Sacola</span>
             </div>
             <span>{formatCurrency(totalPrice)}</span>
           </button>
