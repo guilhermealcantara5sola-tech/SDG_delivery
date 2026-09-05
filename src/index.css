@@ -6,8 +6,19 @@
   }
 }
 
-/* Formatação de cupom térmico para impressão */
+/* Formatação de cupom térmico para impressão não fiscal (80mm / 58mm) */
+@page {
+  size: 80mm auto;
+  margin: 0;
+}
+
 @media print {
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
   body * {
     visibility: hidden;
   }
@@ -18,14 +29,15 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 78mm;
-    margin: 0;
-    padding: 8px;
-    background: white !important;
-    color: black !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 12px;
-    line-height: 1.3;
+    width: 72mm;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 4px 6px;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Courier New', Courier, 'JetBrains Mono', monospace !important;
+    font-size: 11px;
+    line-height: 1.25;
   }
   .no-print {
     display: none !important;

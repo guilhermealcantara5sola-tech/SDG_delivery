@@ -11,7 +11,7 @@ import { ShoppingBag, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
 export const ClientView = () => {
-  const { cart } = useOrder();
+  const { cart, setCurrentView } = useOrder();
   const [activeCategory, setActiveCategory] = useState('todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -46,7 +46,7 @@ export const ClientView = () => {
           setActiveCategory={setActiveCategory}
         />
 
-        {/* Products Grid */}
+        {/* Products Grid (Anota Aí 2-column horizontal cards) */}
         {filteredProducts.length === 0 ? (
           <div className="text-center py-16 bg-slate-900/40 rounded-3xl border border-slate-800 space-y-2">
             <p className="text-slate-400 text-sm font-medium">Nenhum produto encontrado para sua busca.</p>
@@ -58,7 +58,7 @@ export const ClientView = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
@@ -68,6 +68,25 @@ export const ClientView = () => {
             ))}
           </div>
         )}
+
+        {/* Footer do Cardápio (Anota Aí style) */}
+        <footer className="mt-16 pt-8 border-t border-slate-800/80 text-center space-y-4">
+          <div className="text-xs text-slate-400 max-w-md mx-auto space-y-1">
+            <p className="font-extrabold text-slate-300">SDG Burger & Pizza Delivery</p>
+            <p>Horário: Terça a Domingo, das 18h às 23h30</p>
+            <p>Aceitamos PIX, Cartão na Entrega e Dinheiro</p>
+          </div>
+          <div className="pt-2 text-[11px] text-slate-600 flex items-center justify-center space-x-3">
+            <span>Cardápio Digital & Delivery WhatsApp</span>
+            <span>•</span>
+            <button
+              onClick={() => setCurrentView('counter')}
+              className="text-slate-500 hover:text-amber-400 hover:underline transition-colors"
+            >
+              🔒 Acesso da Equipe (Caixa / Cozinha)
+            </button>
+          </div>
+        </footer>
 
       </div>
 

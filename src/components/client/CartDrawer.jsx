@@ -12,6 +12,7 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced }) => {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('pix');
+  const [changeFor, setChangeFor] = useState('');
   const [observation, setObservation] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -37,6 +38,11 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced }) => {
 
     setErrorMsg('');
 
+    const fullObservation = [
+      observation,
+      paymentMethod === 'cash' && changeFor ? `Troco para: ${changeFor}` : ''
+    ].filter(Boolean).join(' | ');
+
     // Create Order in state/Sync
     const newOrder = createOrder({
       name,
@@ -44,7 +50,7 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced }) => {
       deliveryType,
       address: deliveryType === 'delivery' ? address : 'Retirada no Balcão',
       paymentMethod,
-      observation
+      observation: fullObservation
     });
 
     // Trigger visual celebration
@@ -276,6 +282,31 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced }) => {
                     <span>Dinheiro</span>
                   </button>
                 </div>
+
+                {/* Helper / Troco Info */}
+                {paymentMethod === 'cash' && (
+                  <div className="pt-1 animate-in fade-in space-y-1">
+                    <input
+                      type="text"
+                      placeholder="Precisa de troco? Para quanto? (Ex: R$ 50,00)"
+                      value={changeFor}
+                      onChange={(e) => setChangeFor(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 outline-none"
+                    />
+                  </div>
+                )}
+
+                {paymentMethod === 'pix' && (
+                  <p className="text-[11px] text-amber-400 font-semibold pt-1">
+                    ⚡ Chave PIX e QR Code para pagamento instantâneo serão gerados.
+                  </p>
+                )}
+
+                {paymentMethod === 'credit_card' && (
+                  <p className="text-[11px] text-slate-400 pt-1">
+                    💳 Levaremos a maquininha de cartão no momento da entrega / retirada.
+                  </p>
+                )}
               </div>
 
               {/* Error Message */}

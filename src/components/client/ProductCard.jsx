@@ -6,57 +6,50 @@ export const ProductCard = ({ product, onSelectProduct }) => {
   return (
     <div
       onClick={() => onSelectProduct(product)}
-      className="group relative bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden hover:border-amber-500/50 hover:bg-slate-900 transition-all duration-300 flex flex-col justify-between cursor-pointer shadow-lg hover:shadow-amber-500/5 hover:-translate-y-1"
+      className="group relative bg-slate-900/80 border border-slate-800/90 rounded-2xl p-4 hover:border-amber-500/50 hover:bg-slate-900 transition-all duration-200 flex items-center justify-between gap-4 cursor-pointer shadow-md hover:shadow-xl"
     >
-      {/* Product Image */}
-      <div className="relative h-48 w-full overflow-hidden bg-slate-950">
-        <img
-          src={product.image}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-          loading="lazy"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80"></div>
-
+      {/* Product Info (Left Side) */}
+      <div className="flex-1 min-w-0 space-y-1.5">
         {/* Badge */}
         {product.badge && (
-          <div className="absolute top-3 left-3 bg-amber-500 text-slate-950 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-md flex items-center space-x-1">
-            <Sparkles className="w-3 h-3" />
+          <div className="inline-flex items-center space-x-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider mb-1">
+            <Sparkles className="w-2.5 h-2.5" />
             <span>{product.badge}</span>
           </div>
         )}
+
+        <h3 className="text-sm sm:text-base font-extrabold text-white group-hover:text-amber-400 transition-colors line-clamp-1">
+          {product.name}
+        </h3>
+
+        <p className="text-slate-400 text-xs line-clamp-2 leading-relaxed font-medium">
+          {product.description}
+        </p>
+
+        <div className="pt-1.5 flex items-center space-x-2">
+          <span className="text-sm sm:text-base font-black text-emerald-400">
+            {formatCurrency(product.price)}
+          </span>
+          {product.options && product.options.length > 0 && (
+            <span className="text-[10px] text-slate-500 font-semibold uppercase">
+              • Personalizável
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Product Info */}
-      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-        <div>
-          <h3 className="text-lg font-bold text-white group-hover:text-amber-400 transition-colors">
-            {product.name}
-          </h3>
-          <p className="text-slate-400 text-xs mt-1.5 line-clamp-2 leading-relaxed">
-            {product.description}
-          </p>
-        </div>
-
-        {/* Price & Action Button */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
-          <div>
-            <span className="text-xs text-slate-500 uppercase font-semibold">A partir de</span>
-            <div className="text-lg font-extrabold text-amber-400">
-              {formatCurrency(product.price)}
-            </div>
-          </div>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelectProduct(product);
-            }}
-            className="flex items-center space-x-1 px-3.5 py-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold text-xs group-hover:bg-amber-500 group-hover:text-slate-950 transition-all duration-200"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Montar</span>
-          </button>
+      {/* Product Image & Plus Button (Right Side) */}
+      <div className="relative w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0 rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
+        <img
+          src={product.image}
+          alt={product.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+        />
+        
+        {/* Plus / Add floating badge */}
+        <div className="absolute bottom-2 right-2 w-7 h-7 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-lg group-hover:bg-amber-400 group-hover:scale-110 transition-all">
+          <Plus className="w-4 h-4 stroke-[3]" />
         </div>
       </div>
     </div>

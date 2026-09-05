@@ -1,9 +1,10 @@
 import React from 'react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency, formatDateTime, PAYMENT_METHODS } from '../../utils/formatters';
+import { Printer, X } from 'lucide-react';
 
 export const PrintTicket = () => {
-  const { printTicket } = useOrder();
+  const { printTicket, closePrintTicket } = useOrder();
 
   if (!printTicket || !printTicket.order) return null;
 
@@ -11,7 +12,48 @@ export const PrintTicket = () => {
   const isKitchen = type === 'kitchen';
 
   return (
-    <div id="printable-ticket" className="printable-ticket text-black font-mono">
+    <>
+      {/* On-screen preview modal (hidden during physical print) */}
+      <div className="no-print fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in">
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="flex items-center space-x-2">
+              <Printer className="w-5 h-5 text-amber-400" />
+              <h3 className="font-extrabold text-sm text-white">
+                {isKitchen ? 'Comanda Cozinha (80/58mm)' : 'Cupom Balcão (80/58mm)'}
+              </h3>
+            </div>
+            <button
+              onClick={closePrintTicket}
+              className="w-7 h-7 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            A janela de impressão foi acionada. Caso deseje imprimir novamente na sua impressora térmica não fiscal:
+          </p>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => window.print()}
+              className="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 text-slate-950 font-extrabold text-xs hover:bg-amber-400 transition-all flex items-center justify-center space-x-1.5 shadow-lg shadow-amber-500/20 active:scale-95"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Imprimir na Térmica</span>
+            </button>
+            <button
+              onClick={closePrintTicket}
+              className="py-2.5 px-4 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-700 transition-all"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="printable-ticket" className="printable-ticket text-black font-mono">
       {/* Header */}
       <div className="text-center pb-2 mb-2 border-b border-dashed border-black">
         <h1 className="text-base font-extrabold uppercase">SDG RESTAURANTE</h1>
@@ -108,5 +150,6 @@ export const PrintTicket = () => {
         Obrigado pela preferência! | SDG Delivery
       </div>
     </div>
+  </>
   );
 };

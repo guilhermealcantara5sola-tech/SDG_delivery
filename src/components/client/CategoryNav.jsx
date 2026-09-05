@@ -1,10 +1,10 @@
 import React from 'react';
 import { CATEGORIES } from '../../data/mockData';
-import { Utensils, Hamburger, Pizza, CupSoda, IceCream, Zap } from 'lucide-react';
+import { Utensils, Sandwich, Pizza, CupSoda, IceCream, Zap } from 'lucide-react';
 
 const ICON_MAP = {
   Utensils,
-  Ham: Hamburger || Utensils,
+  Ham: Sandwich,
   Pizza,
   CupSoda,
   IceCream,

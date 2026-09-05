@@ -6,32 +6,62 @@ const OrderContext = createContext();
 const BROADCAST_CHANNEL_NAME = 'sdg_delivery_sync_channel';
 const LOCAL_STORAGE_KEY = 'sdg_delivery_orders_v1';
 
-// Web Audio API beep sound generator
-const playAlertSound = (frequency = 587.33, type = 'sine') => {
+// Web Audio API ding-dong notification sound generator (Anota AI style)
+const playAlertSound = (type = 'new_order') => {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
     const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
     
-    osc.type = type;
-    osc.frequency.setValueAtTime(frequency, ctx.currentTime);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-    
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
+    if (type === 'new_order') {
+      // Ding-dong chord (E5 then B5)
+      const playTone = (freq, start, duration) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime + start);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + duration);
+      };
+      playTone(659.25, 0, 0.4);      // E5
+      playTone(880.00, 0.25, 0.6);    // A5
+    } else {
+      // Quick confirmation blip
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(783.99, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    }
   } catch (e) {
     console.warn('Audio playback failed', e);
   }
 };
 
+const getViewFromUrl = () => {
+  if (typeof window === 'undefined') return 'client';
+  const path = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+  const hash = window.location.hash.toLowerCase().replace(/^#\/?/, '');
+  const query = new URLSearchParams(window.location.search).get('view');
+  
+  const target = (query || hash || path).toLowerCase();
+  if (target.includes('balcao') || target.includes('caixa') || target.includes('counter') || target.includes('gestor')) return 'counter';
+  if (target.includes('cozinha') || target.includes('kds') || target.includes('kitchen')) return 'kitchen';
+  if (target.includes('admin') || target.includes('painel') || target.includes('links')) return 'admin';
+  return 'client';
+};
+
 export const OrderProvider = ({ children }) => {
-  const [currentView, setCurrentView] = useState('client'); // 'client' | 'counter' | 'kitchen' | 'admin'
+  const [currentView, setCurrentViewState] = useState(getViewFromUrl);
   const [orders, setOrders] = useState(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
@@ -42,6 +72,30 @@ export const OrderProvider = ({ children }) => {
 
   const [cart, setCart] = useState([]);
   const [printTicket, setPrintTicket] = useState(null);
+
+  // Sync state with URL
+  const setCurrentView = (view) => {
+    setCurrentViewState(view);
+    if (typeof window !== 'undefined') {
+      let newPath = '/';
+      if (view === 'counter') newPath = '/balcao';
+      else if (view === 'kitchen') newPath = '/cozinha';
+      else if (view === 'admin') newPath = '/admin';
+      
+      if (window.location.pathname !== newPath) {
+        window.history.pushState({ view }, '', newPath);
+      }
+    }
+  };
+
+  // Listen to browser navigation (Back / Forward)
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentViewState(getViewFromUrl());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Save to localStorage & Broadcast to other tabs
   const saveAndSyncOrders = (newOrders) => {
@@ -67,7 +121,7 @@ export const OrderProvider = ({ children }) => {
       channel.onmessage = (event) => {
         if (event.data && event.data.type === 'SYNC_ORDERS') {
           setOrders(event.data.data);
-          playAlertSound(783.99); // Play subtle chime when synced order arrives
+          playAlertSound('new_order'); // Play Anota AI ding-dong when synced order arrives
         }
       };
     }
@@ -150,7 +204,7 @@ export const OrderProvider = ({ children }) => {
     const updatedOrders = [newOrder, ...orders];
     saveAndSyncOrders(updatedOrders);
     clearCart();
-    playAlertSound(880);
+    playAlertSound('confirm');
 
     return newOrder;
   };
@@ -172,9 +226,9 @@ export const OrderProvider = ({ children }) => {
 
     // Audio cue
     if (newStatus === 'pagamento_confirmado') {
-      playAlertSound(659.25); // Notification for kitchen
+      playAlertSound('new_order'); // Notification for kitchen
     } else if (newStatus === 'pronto') {
-      playAlertSound(1046.50); // High chime for ready order
+      playAlertSound('confirm'); // High chime for ready order
     }
   };
 
@@ -185,6 +239,8 @@ export const OrderProvider = ({ children }) => {
       window.print();
     }, 100);
   };
+
+  const closePrintTicket = () => setPrintTicket(null);
 
   return (
     <OrderContext.Provider value={{
@@ -199,7 +255,8 @@ export const OrderProvider = ({ children }) => {
       createOrder,
       updateOrderStatus,
       printTicket,
-      triggerPrintTicket
+      triggerPrintTicket,
+      closePrintTicket
     }}>
       {children}
     </OrderContext.Provider>

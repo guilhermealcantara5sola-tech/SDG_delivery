@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Clock, MapPin, Search, ShoppingBag } from 'lucide-react';
+import { Star, Clock, MapPin, Search, ShoppingBag, Utensils, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 
 export const HeaderBanner = ({ searchQuery, setSearchQuery, onOpenCart }) => {
@@ -7,71 +7,90 @@ export const HeaderBanner = ({ searchQuery, setSearchQuery, onOpenCart }) => {
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <div className="relative overflow-hidden bg-slate-900 rounded-3xl border border-slate-800 p-6 md:p-8 mb-8 shadow-2xl">
-      {/* Background Glow */}
-      <div className="absolute -top-24 -right-24 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl pointer-events-none"></div>
-
-      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="relative overflow-hidden bg-slate-900 rounded-3xl border border-slate-800 mb-6 shadow-2xl">
+      {/* Cover Photo Banner (Anota Aí Cover) */}
+      <div className="relative h-36 sm:h-44 w-full overflow-hidden bg-gradient-to-r from-amber-600 via-orange-600 to-rose-700">
+        <img
+          src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80"
+          alt="Capa do Restaurante"
+          className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
         
-        {/* Restaurant Info */}
-        <div className="space-y-3">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-            <span>Cardápio Digital & Delivery WhatsApp</span>
-          </div>
-
-          <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
-            Faça seu Pedido Online
-          </h1>
-          <p className="text-slate-400 text-sm md:text-base max-w-xl">
-            Escolha os seus itens favoritos abaixo. Seu pedido é enviado em tempo real para o nosso balcão e cozinha com acompanhamento pelo WhatsApp!
-          </p>
-
-          <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-300 pt-2">
-            <div className="flex items-center space-x-1 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
-              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-              <span className="font-bold text-white">4.9</span>
-              <span className="text-slate-400">(500+ avaliações)</span>
-            </div>
-            <div className="flex items-center space-x-1 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
-              <Clock className="w-4 h-4 text-orange-400" />
-              <span>30 - 45 min</span>
-            </div>
-            <div className="flex items-center space-x-1 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
-              <MapPin className="w-4 h-4 text-emerald-400" />
-              <span>Entrega Grátis acima de R$ 70</span>
-            </div>
-          </div>
+        {/* Status Pill on Cover */}
+        <div className="absolute top-4 right-4 z-10 flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-500/90 text-slate-950 font-black text-xs shadow-lg backdrop-blur-sm">
+          <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+          <span>ABERTO AGORA</span>
         </div>
+      </div>
 
-        {/* Search & Cart Quick Button */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:w-80">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar no cardápio..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
-            />
+      {/* Profile & Info Section */}
+      <div className="px-6 pb-6 pt-0 relative">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-12 sm:-mt-14 mb-4">
+          {/* Avatar / Logo */}
+          <div className="flex items-end space-x-4">
+            <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-slate-950 border-4 border-slate-900 shadow-2xl overflow-hidden flex items-center justify-center p-2 group">
+              <div className="w-full h-full rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center shadow-inner">
+                <Utensils className="w-10 h-10 text-slate-950 stroke-[2.5]" />
+              </div>
+            </div>
+
+            <div className="pb-1">
+              <div className="flex items-center space-x-1.5">
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  SDG Burger & Pizza
+                </h1>
+                <CheckCircle2 className="w-5 h-5 text-amber-400 fill-amber-400/20" title="Verificado" />
+              </div>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">
+                Artesanais, Pizzas & Delivery no WhatsApp
+              </p>
+            </div>
           </div>
 
+          {/* Quick Cart Button */}
           <button
             onClick={onOpenCart}
-            className="flex items-center justify-center space-x-2 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+            className="flex items-center justify-center space-x-2 px-5 py-3 rounded-2xl bg-amber-500 text-slate-950 font-extrabold text-sm hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95 self-start sm:self-end"
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>Carrinho</span>
+            <span>Minha Sacola</span>
             {totalCartItems > 0 && (
-              <span className="ml-1 px-2 py-0.5 text-xs bg-slate-950 text-amber-400 rounded-full font-extrabold">
+              <span className="ml-1 px-2 py-0.5 text-xs bg-slate-950 text-amber-400 rounded-full font-black">
                 {totalCartItems}
               </span>
             )}
           </button>
         </div>
 
+        {/* Badges / Metrics Row (Anota Aí style) */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-semibold text-slate-300 pt-2 border-t border-slate-800/80">
+          <div className="flex items-center space-x-1 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+            <span className="font-extrabold text-white">4.9</span>
+            <span className="text-slate-500 text-[11px]">(500+ pedidos)</span>
+          </div>
+          <div className="flex items-center space-x-1 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+            <Clock className="w-3.5 h-3.5 text-orange-400" />
+            <span>30 - 45 min</span>
+          </div>
+          <div className="flex items-center space-x-1 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+            <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Entrega: R$ 7,00 • Retirada Grátis</span>
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="mt-4 relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="O que você gostaria de comer hoje? (Ex: smash, pepperoni, coca...)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-all"
+          />
+        </div>
       </div>
     </div>
   );
