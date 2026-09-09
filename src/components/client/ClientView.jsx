@@ -6,6 +6,7 @@ import { ProductCard } from './ProductCard';
 import { ProductModal } from './ProductModal';
 import { CartDrawer } from './CartDrawer';
 import { OrderStatusModal } from './OrderStatusModal';
+import { CustomerAuthModal } from './CustomerAuthModal';
 import { useOrder } from '../../context/OrderContext';
 import { ShoppingBag, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
@@ -16,6 +17,7 @@ export const ClientView = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCustomerAuthOpen, setIsCustomerAuthOpen] = useState(false);
   const [activeOrderTrack, setActiveOrderTrack] = useState(null);
 
   // Filter products by category and search term
@@ -35,11 +37,12 @@ export const ClientView = () => {
     <div className="min-h-screen pb-28">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         
-        {/* Banner */}
+        {/* Banner com atalhos de fidelidade e carrinho */}
         <HeaderBanner
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onOpenCart={() => setIsCartOpen(true)}
+          onOpenCustomerAuth={() => setIsCustomerAuthOpen(true)}
         />
 
         {/* Category Navbar (Sticky on mobile & desktop) */}
@@ -59,63 +62,43 @@ export const ClientView = () => {
               Limpar filtros e ver cardápio completo
             </button>
           </div>
-        ) : searchQuery.trim() !== '' || activeCategory !== 'todos' ? (
-          // Filtered View (Single Category or Search)
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <h2 className="text-lg font-black text-white flex items-center space-x-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                <span>
-                  {searchQuery.trim() !== ''
-                    ? `Resultados para "${searchQuery}"`
-                    : CATEGORIES.find(c => c.id === activeCategory)?.name}
-                </span>
-              </h2>
-              {activeCategory !== 'todos' && (
-                <button
-                  onClick={() => setActiveCategory('todos')}
-                  className="text-xs font-bold text-amber-400 hover:underline"
-                >
-                  Ver todos os itens
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onSelectProduct={setSelectedProduct}
-                />
-              ))}
-            </div>
+        ) : activeCategory !== 'todos' || searchQuery ? (
+          // Grid view when filtered
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-6">
+            {filteredProducts.map(product => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onSelectProduct={() => setSelectedProduct(product)}
+                onSelect={() => setSelectedProduct(product)}
+              />
+            ))}
           </div>
         ) : (
-          // Grouped by Category View (Anota Aí complete menu)
-          <div className="space-y-8">
-            {realCategories.map((cat) => {
-              const catProducts = PRODUCTS.filter(p => p.categoryId === cat.id);
-              if (catProducts.length === 0) return null;
+          // Grouped by Category Section View (Cardápio Anota Aí Style)
+          <div className="space-y-10 mt-6">
+            {realCategories.map(category => {
+              const categoryProducts = filteredProducts.filter(p => p.categoryId === category.id);
+              if (categoryProducts.length === 0) return null;
 
               return (
-                <section key={cat.id} className="space-y-3.5 scroll-mt-20">
-                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-                    <h2 className="text-base sm:text-lg font-black text-white flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                      <span>{cat.name}</span>
+                <section key={category.id} id={`category-${category.id}`} className="space-y-4 scroll-mt-24">
+                  <div className="flex items-center space-x-2 border-b border-slate-800/80 pb-2">
+                    <h2 className="text-lg font-extrabold text-white tracking-tight">
+                      {category.name}
                     </h2>
-                    <span className="text-[11px] font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800">
-                      {catProducts.length} opções
+                    <span className="text-xs text-slate-500 font-bold">
+                      ({categoryProducts.length})
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
-                    {catProducts.map((product) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {categoryProducts.map(product => (
                       <ProductCard
                         key={product.id}
                         product={product}
-                        onSelectProduct={setSelectedProduct}
+                        onSelectProduct={() => setSelectedProduct(product)}
+                        onSelect={() => setSelectedProduct(product)}
                       />
                     ))}
                   </div>
@@ -124,25 +107,6 @@ export const ClientView = () => {
             })}
           </div>
         )}
-
-        {/* Footer do Cardápio (Anota Aí style) */}
-        <footer className="mt-16 pt-8 border-t border-slate-800/80 text-center space-y-4">
-          <div className="text-xs text-slate-400 max-w-md mx-auto space-y-1">
-            <p className="font-extrabold text-slate-300">SDG Burger & Pizza Delivery</p>
-            <p>Horário: Terça a Domingo, das 18h às 23h30</p>
-            <p>Aceitamos PIX, Cartão na Entrega e Dinheiro</p>
-          </div>
-          <div className="pt-2 text-[11px] text-slate-600 flex items-center justify-center space-x-3">
-            <span>Cardápio Digital & Delivery WhatsApp</span>
-            <span>•</span>
-            <button
-              onClick={() => setCurrentView('counter')}
-              className="text-slate-500 hover:text-amber-400 hover:underline transition-colors"
-            >
-              🔒 Acesso da Equipe (Caixa / Cozinha)
-            </button>
-          </div>
-        </footer>
 
       </div>
 
@@ -183,6 +147,14 @@ export const ClientView = () => {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         onOrderPlaced={(order) => setActiveOrderTrack(order)}
+        onOpenCustomerAuth={() => setIsCustomerAuthOpen(true)}
+      />
+
+      {/* Customer Auth & Loyalty Modal */}
+      <CustomerAuthModal
+        isOpen={isCustomerAuthOpen}
+        onClose={() => setIsCustomerAuthOpen(false)}
+        onOpenCart={() => setIsCartOpen(true)}
       />
 
       {/* Live Order Status Tracker */}

@@ -1,9 +1,9 @@
 import React from 'react';
-import { Star, Clock, MapPin, Search, ShoppingBag, Utensils, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Star, Clock, MapPin, Search, ShoppingBag, Utensils, CheckCircle2, Award, User } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 
-export const HeaderBanner = ({ searchQuery, setSearchQuery, onOpenCart }) => {
-  const { cart } = useOrder();
+export const HeaderBanner = ({ searchQuery, setSearchQuery, onOpenCart, onOpenCustomerAuth }) => {
+  const { cart, customer } = useOrder();
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
@@ -17,6 +17,20 @@ export const HeaderBanner = ({ searchQuery, setSearchQuery, onOpenCart }) => {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
         
+        {/* Loyalty Club Top Banner Shortcut */}
+        <button
+          onClick={onOpenCustomerAuth}
+          className="absolute top-4 left-4 z-10 flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-slate-950/85 hover:bg-slate-900 border border-amber-500/40 text-amber-300 font-extrabold text-[11px] sm:text-xs shadow-lg backdrop-blur-md transition-all active:scale-95"
+          title="Ver meus prêmios de fidelidade e histórico"
+        >
+          <Award className="w-3.5 h-3.5 text-amber-400" />
+          {customer ? (
+            <span>👑 {customer.name.split(' ')[0]} ({customer.total_orders || 1} Pedidos)</span>
+          ) : (
+            <span>🎁 Ganhe Prêmios (Entrar / Cadastrar)</span>
+          )}
+        </button>
+
         {/* Status Pill on Cover */}
         <div className="absolute top-4 right-4 z-10 flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-500/90 text-slate-950 font-black text-xs shadow-lg backdrop-blur-sm">
           <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
@@ -48,22 +62,41 @@ export const HeaderBanner = ({ searchQuery, setSearchQuery, onOpenCart }) => {
             </div>
           </div>
 
-          {/* Quick Cart Button */}
-          <button
-            onClick={onOpenCart}
-            className="flex items-center justify-center space-x-2 px-5 py-3 rounded-2xl bg-amber-500 text-slate-950 font-extrabold text-sm hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95 self-start sm:self-end"
-          >
-            <ShoppingBag className="w-4 h-4" />
-            <span>Minha Sacola</span>
-            {totalCartItems > 0 && (
-              <span className="ml-1 px-2 py-0.5 text-xs bg-slate-950 text-amber-400 rounded-full font-black">
-                {totalCartItems}
+          {/* Quick Action Buttons (Login & Cart) */}
+          <div className="flex items-center space-x-2 self-start sm:self-end w-full sm:w-auto">
+            {/* Customer Auth / Loyalty Button */}
+            <button
+              onClick={onOpenCustomerAuth}
+              className="flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-4 py-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-amber-500/40 text-slate-200 hover:text-amber-400 font-bold text-xs transition-all shadow-md active:scale-95"
+            >
+              <User className="w-4 h-4 text-amber-400" />
+              <span>
+                {customer ? `Olá, ${customer.name.split(' ')[0]}` : 'Cadastrar / Entrar'}
               </span>
-            )}
-          </button>
+              {customer && (
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black border border-amber-500/30">
+                  ⭐ {customer.total_orders || 1}
+                </span>
+              )}
+            </button>
+
+            {/* Quick Cart Button */}
+            <button
+              onClick={onOpenCart}
+              className="flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-5 py-3 rounded-2xl bg-amber-500 text-slate-950 font-extrabold text-sm hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>Sacola</span>
+              {totalCartItems > 0 && (
+                <span className="ml-1 px-2 py-0.5 text-xs bg-slate-950 text-amber-400 rounded-full font-black">
+                  {totalCartItems}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* Badges / Metrics Row (Anota Aí style) */}
+        {/* Badges / Metrics Row */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-semibold text-slate-300 pt-2 border-t border-slate-800/80">
           <div className="flex items-center space-x-1 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
             <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />

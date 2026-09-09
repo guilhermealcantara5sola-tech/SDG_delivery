@@ -1,9 +1,9 @@
 import React from 'react';
 import { useOrder } from '../../context/OrderContext';
-import { Monitor, ChefHat, ExternalLink, Link2, BellRing, ShieldCheck } from 'lucide-react';
+import { Monitor, ChefHat, ExternalLink, BarChart3, ShieldCheck } from 'lucide-react';
 
 export const Header = () => {
-  const { currentView, setCurrentView, orders } = useOrder();
+  const { currentView, setCurrentView, orders, dbStatus } = useOrder();
 
   const pendingBalcaoCount = orders.filter(o => o.status === 'aguardando_pagamento').length;
   const kitchenActiveCount = orders.filter(o => o.status === 'pagamento_confirmado' || o.status === 'em_preparo').length;
@@ -70,7 +70,7 @@ export const Header = () => {
               )}
             </button>
 
-            {/* View: Links & Config */}
+            {/* View: Painel do Gestor */}
             <button
               onClick={() => setCurrentView('admin')}
               className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
@@ -79,13 +79,34 @@ export const Header = () => {
                   : 'text-slate-400 hover:text-white hover:bg-slate-900'
               }`}
             >
-              <Link2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Links de Acesso</span>
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Painel Gestor</span>
             </button>
           </nav>
 
-          {/* Open Customer Menu in New Tab */}
-          <div className="flex items-center space-x-2">
+          {/* Right actions: Online Status & Customer Menu Link */}
+          <div className="flex items-center space-x-2.5">
+            {/* Clean Business Status Indicator */}
+            {dbStatus === 'connected' && (
+              <div
+                className="hidden md:flex items-center space-x-1.5 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                title="Sistema conectado e sincronizando em tempo real"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Sistema Online</span>
+              </div>
+            )}
+
+            {dbStatus === 'connecting' && (
+              <div
+                className="hidden md:flex items-center space-x-1.5 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                <span>Conectando...</span>
+              </div>
+            )}
+
+            {/* Open Customer Menu in New Tab */}
             <a
               href="/"
               target="_blank"
@@ -94,7 +115,7 @@ export const Header = () => {
               title="Abrir o cardápio que os clientes veem no WhatsApp em outra aba"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Ver Cardápio do Cliente</span>
+              <span className="hidden sm:inline">Cardápio do Cliente</span>
             </a>
           </div>
 

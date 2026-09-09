@@ -2,10 +2,15 @@ import React from 'react';
 import { Plus, Sparkles } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
-export const ProductCard = ({ product, onSelectProduct }) => {
+export const ProductCard = ({ product, onSelectProduct, onSelect }) => {
+  const handleClick = () => {
+    if (onSelectProduct) onSelectProduct(product);
+    else if (onSelect) onSelect(product);
+  };
+
   return (
     <div
-      onClick={() => onSelectProduct(product)}
+      onClick={handleClick}
       className="group relative bg-slate-900/80 border border-slate-800/90 rounded-2xl p-4 hover:border-amber-500/50 hover:bg-slate-900 transition-all duration-200 flex items-center justify-between gap-4 cursor-pointer shadow-md hover:shadow-xl"
     >
       {/* Product Info (Left Side) */}

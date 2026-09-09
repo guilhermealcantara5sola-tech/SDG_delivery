@@ -1,5 +1,18 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { INITIAL_ORDERS } from '../data/mockData';
+import {
+  isSupabaseConfigured,
+  getSupabaseConfig
+} from '../services/supabase';
+import {
+  fetchOrdersFromDb,
+  insertOrderInDb,
+  updateOrderStatusInDb,
+  subscribeToOrdersRealtime,
+  saveCustomerProfile,
+  loginCustomerByPin,
+  fetchCustomerOrdersFromDb
+} from '../services/orderService';
 
 const OrderContext = createContext();
 
@@ -14,7 +27,7 @@ const playAlertSound = (type = 'new_order') => {
     const ctx = new AudioContext();
     
     if (type === 'new_order') {
-      // Ding-dong chord (E5 then B5)
+      // Ding-dong chord (E5 then A5)
       const playTone = (freq, start, duration) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -73,6 +86,82 @@ export const OrderProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
   const [printTicket, setPrintTicket] = useState(null);
 
+  // Sessão do Cliente (Login com 6 dígitos e Fidelidade)
+  const [customer, setCustomer] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sdg_customer_session');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const saveCustomerSession = (customerData) => {
+    setCustomer(customerData);
+    if (customerData) {
+      localStorage.setItem('sdg_customer_session', JSON.stringify(customerData));
+    } else {
+      localStorage.removeItem('sdg_customer_session');
+    }
+  };
+
+  const loginCustomer = async (phone, pin) => {
+    const res = await loginCustomerByPin(phone, pin);
+    if (res.customer) {
+      saveCustomerSession(res.customer);
+      return { success: true, customer: res.customer };
+    }
+    return { success: false, error: res.error?.message || 'Falha ao autenticar' };
+  };
+
+  const registerCustomer = async ({ name, phone, pin, address }) => {
+    const res = await saveCustomerProfile({ name, phone, address, pin });
+    const newCustomer = {
+      id: res.data?.id || `cust-${Date.now()}`,
+      name,
+      phone,
+      address,
+      pin,
+      total_orders: 1
+    };
+    saveCustomerSession(newCustomer);
+    return { success: true, customer: newCustomer };
+  };
+
+  const logoutCustomer = () => {
+    saveCustomerSession(null);
+  };
+
+  const updateCustomerAddress = async (newAddress) => {
+    if (!customer) return;
+    const updated = { ...customer, address: newAddress };
+    saveCustomerSession(updated);
+    saveCustomerProfile({
+      name: updated.name,
+      phone: updated.phone,
+      address: newAddress,
+      pin: updated.pin
+    }).catch(console.error);
+  };
+
+  // Pedir Novamente: Reinsere os itens do pedido anterior no carrinho
+  const reorder = (order) => {
+    if (!order || !order.items || order.items.length === 0) return false;
+    setCart(prev => {
+      const clonedItems = order.items.map(item => ({
+        ...item,
+        subtotal: (item.unitPriceWithExtras || item.price) * item.quantity
+      }));
+      return [...prev, ...clonedItems];
+    });
+    playAlertSound('confirm');
+    return true;
+  };
+
+  // Database Connection State ('local' | 'connecting' | 'connected' | 'error')
+  const [dbStatus, setDbStatus] = useState(() => isSupabaseConfigured() ? 'connecting' : 'local');
+  const [dbVersion, setDbVersion] = useState(0);
+
   // Sync state with URL
   const setCurrentView = (view) => {
     setCurrentViewState(view);
@@ -97,7 +186,7 @@ export const OrderProvider = ({ children }) => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Save to localStorage & Broadcast to other tabs
+  // Save to localStorage & Broadcast to other tabs on same machine
   const saveAndSyncOrders = (newOrders) => {
     setOrders(newOrders);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newOrders));
@@ -121,7 +210,7 @@ export const OrderProvider = ({ children }) => {
       channel.onmessage = (event) => {
         if (event.data && event.data.type === 'SYNC_ORDERS') {
           setOrders(event.data.data);
-          playAlertSound('new_order'); // Play Anota AI ding-dong when synced order arrives
+          playAlertSound('new_order');
         }
       };
     }
@@ -142,6 +231,73 @@ export const OrderProvider = ({ children }) => {
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
+
+  // Fetch orders from Supabase on start or when dbVersion triggers reconnect
+  const loadOrdersFromSupabase = useCallback(async () => {
+    if (!isSupabaseConfigured()) {
+      setDbStatus('local');
+      return;
+    }
+
+    setDbStatus('connecting');
+    const { data, error } = await fetchOrdersFromDb();
+
+    if (!error && data) {
+      setOrders(data);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+      setDbStatus('connected');
+    } else {
+      console.warn('Aviso: Não foi possível sincronizar com o Supabase. Utilizando armazenamento local.', error);
+      setDbStatus('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOrdersFromSupabase();
+  }, [loadOrdersFromSupabase, dbVersion]);
+
+  // Subscribe to Supabase Realtime changes
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    const unsubscribe = subscribeToOrdersRealtime({
+      onInsert: (newOrder) => {
+        setOrders(prev => {
+          if (prev.some(o => o.id === newOrder.id)) return prev;
+          const updated = [newOrder, ...prev];
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+          return updated;
+        });
+        playAlertSound('new_order');
+      },
+      onUpdate: (updatedOrder) => {
+        setOrders(prev => {
+          const existing = prev.find(o => o.id === updatedOrder.id);
+          if (existing && existing.status !== updatedOrder.status) {
+            if (updatedOrder.status === 'pagamento_confirmado') {
+              playAlertSound('new_order');
+            } else if (updatedOrder.status === 'pronto') {
+              playAlertSound('confirm');
+            }
+          }
+          const updated = prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+          return updated;
+        });
+      },
+      onDelete: (deletedId) => {
+        setOrders(prev => {
+          const updated = prev.filter(o => o.id !== deletedId);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+          return updated;
+        });
+      }
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [dbVersion]);
 
   // Cart operations
   const addToCart = (product, quantity = 1, selectedOptions = [], observation = '') => {
@@ -183,13 +339,14 @@ export const OrderProvider = ({ children }) => {
 
   const clearCart = () => setCart([]);
 
-  // Create new order from client
+  // Create new order from client (saves to local state and Supabase DB)
   const createOrder = (customerDetails) => {
     const total = cart.reduce((acc, item) => acc + item.subtotal, 0) + (customerDetails.deliveryType === 'delivery' ? 7.00 : 0);
     
     const newOrder = {
       id: `PED-${Math.floor(1000 + Math.random() * 9000)}`,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       customerName: customerDetails.name,
       customerPhone: customerDetails.phone,
       deliveryType: customerDetails.deliveryType, // 'delivery' | 'takeout'
@@ -201,10 +358,28 @@ export const OrderProvider = ({ children }) => {
       items: [...cart]
     };
 
-    const updatedOrders = [newOrder, ...orders];
+    // 1. Immediate optimistic local state update
+    const updatedOrders = [newOrder, ...orders.filter(o => o.id !== newOrder.id)];
     saveAndSyncOrders(updatedOrders);
     clearCart();
     playAlertSound('confirm');
+
+    // Se o cliente estiver logado, atualiza o contador de pedidos dele localmente
+    if (customer) {
+      const updatedCust = {
+        ...customer,
+        total_orders: (Number(customer.total_orders) || 0) + 1,
+        address: customerDetails.deliveryType === 'delivery' ? (customerDetails.address || customer.address) : customer.address
+      };
+      saveCustomerSession(updatedCust);
+    }
+
+    // 2. Persist to Supabase Database if configured
+    if (isSupabaseConfigured()) {
+      insertOrderInDb(newOrder).catch(err => {
+        console.warn('Aviso: Erro ao persistir pedido no Supabase, salvo localmente:', err);
+      });
+    }
 
     return newOrder;
   };
@@ -230,6 +405,18 @@ export const OrderProvider = ({ children }) => {
     } else if (newStatus === 'pronto') {
       playAlertSound('confirm'); // High chime for ready order
     }
+
+    // Persist status change to Supabase Database
+    if (isSupabaseConfigured()) {
+      updateOrderStatusInDb(orderId, newStatus).catch(err => {
+        console.warn('Aviso: Erro ao atualizar status no Supabase:', err);
+      });
+    }
+  };
+
+  // Reconnect / force refresh helper
+  const reconnectDb = () => {
+    setDbVersion(v => v + 1);
   };
 
   // Thermal printing trigger helper
@@ -256,7 +443,19 @@ export const OrderProvider = ({ children }) => {
       updateOrderStatus,
       printTicket,
       triggerPrintTicket,
-      closePrintTicket
+      closePrintTicket,
+      // Database state & triggers
+      dbStatus,
+      isDbConnected: dbStatus === 'connected',
+      reconnectDb,
+      refreshOrders: loadOrdersFromSupabase,
+      // Customer & Loyalty features
+      customer,
+      loginCustomer,
+      registerCustomer,
+      logoutCustomer,
+      updateCustomerAddress,
+      reorder
     }}>
       {children}
     </OrderContext.Provider>

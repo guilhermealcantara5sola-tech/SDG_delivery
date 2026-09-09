@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { X, Trash2, Plus, Minus, Send, QrCode, CreditCard, Banknote, MapPin, Phone, User, ShoppingBag, ArrowRight } from 'lucide-react';
+import { X, Trash2, Plus, Minus, Send, QrCode, CreditCard, Banknote, MapPin, Phone, User, ShoppingBag, ArrowRight, Award, Gift } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency } from '../../utils/formatters';
 import confetti from 'canvas-confetti';
 
-export const CartDrawer = ({ isOpen, onClose, onOrderPlaced }) => {
-  const { cart, removeFromCart, updateCartQuantity, createOrder } = useOrder();
+export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth }) => {
+  const { cart, removeFromCart, updateCartQuantity, createOrder, customer } = useOrder();
 
   const [deliveryType, setDeliveryType] = useState('delivery'); // 'delivery' | 'takeout'
   const [name, setName] = useState('');
@@ -15,6 +15,15 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced }) => {
   const [changeFor, setChangeFor] = useState('');
   const [observation, setObservation] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Preenche automaticamente com os dados salvos do cliente
+  React.useEffect(() => {
+    if (customer) {
+      if (customer.name) setName(customer.name);
+      if (customer.phone) setPhone(customer.phone);
+      if (customer.address) setAddress(customer.address);
+    }
+  }, [customer, isOpen]);
 
   if (!isOpen) return null;
 
@@ -202,9 +211,42 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced }) => {
                 </div>
               </div>
 
+              {/* Customer Loyalty / Login Banner in Cart */}
+              {customer ? (
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs">
+                  <div className="flex items-center space-x-2 text-amber-300">
+                    <Award className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Conectado: <strong>{customer.name}</strong></span>
+                  </div>
+                  <span className="text-[10px] font-black text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
+                    ⭐ {customer.total_orders || 1} Pedidos
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { onClose(); if (onOpenCustomerAuth) onOpenCustomerAuth(); }}
+                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-950 border border-amber-500/30 hover:border-amber-500 text-xs text-left transition-all group"
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <Gift className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+                    <div>
+                      <div className="font-bold text-white">Já tem cadastro? Entrar com 6 dígitos</div>
+                      <div className="text-[10px] text-slate-400">Puxa seu endereço salvo e pontua na fidelidade!</div>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                </button>
+              )}
+
               {/* Customer Inputs */}
               <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Seus Dados</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Seus Dados de Entrega</h3>
+                  {customer && (
+                    <span className="text-[10px] text-emerald-400 font-semibold">✓ Dados pré-preenchidos</span>
+                  )}
+                </div>
                 
                 <div className="relative">
                   <User className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
