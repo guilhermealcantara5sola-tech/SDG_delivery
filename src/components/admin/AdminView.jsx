@@ -3,7 +3,7 @@ import {
   Users, ShoppingBag, DollarSign, TrendingUp, Smartphone,
   Monitor, ChefHat, ExternalLink, Copy, Check, Search, Phone,
   MapPin, Utensils, Award, ShieldCheck, CheckCircle2, MessageCircle,
-  Plus, Edit3, Trash2, Eye, EyeOff, Printer, Clock, Filter, Sparkles
+  Plus, Edit3, Trash2, Eye, EyeOff, Printer, Clock, Filter, Sparkles, Palette
 } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import {
@@ -16,6 +16,7 @@ import { formatCurrency, formatDateTime, STATUS_MAP, PAYMENT_METHODS } from '../
 import { ProductModalAdmin } from './ProductModalAdmin';
 import { CustomerModalAdmin } from './CustomerModalAdmin';
 import { OrderEditModal } from '../common/OrderEditModal';
+import { StoreCustomizationAdmin } from './StoreCustomizationAdmin';
 
 export const AdminView = () => {
   const {
@@ -248,53 +249,65 @@ export const AdminView = () => {
         </div>
 
         {/* NAVEGAÇÃO DE ABAS DE GESTÃO */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
           
           <button
             onClick={() => setActiveTab('orders')}
-            className={`py-3 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center space-x-2 ${
+            className={`py-3 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center space-x-1.5 ${
               activeTab === 'orders'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <ShoppingBag className="w-4 h-4" />
+            <ShoppingBag className="w-4 h-4 shrink-0" />
             <span>Pedidos ({orders.length})</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('clients')}
-            className={`py-3 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center space-x-2 ${
-              activeTab === 'clients'
-                ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Clientes ({customers.length})</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('menu')}
-            className={`py-3 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center space-x-2 ${
+            className={`py-3 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center space-x-1.5 ${
               activeTab === 'menu'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <Utensils className="w-4 h-4" />
+            <Utensils className="w-4 h-4 shrink-0" />
             <span>Cardápio ({products?.length || 0})</span>
           </button>
 
           <button
+            onClick={() => setActiveTab('customization')}
+            className={`py-3 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center space-x-1.5 ${
+              activeTab === 'customization'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md'
+                : 'text-amber-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Palette className="w-4 h-4 shrink-0" />
+            <span>Personalizar Loja</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('clients')}
+            className={`py-3 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center space-x-1.5 ${
+              activeTab === 'clients'
+                ? 'bg-amber-500 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Users className="w-4 h-4 shrink-0" />
+            <span>Clientes ({customers.length})</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('links')}
-            className={`py-3 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center space-x-2 ${
+            className={`py-3 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center space-x-1.5 ${
               activeTab === 'links'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900'
             }`}
           >
-            <Smartphone className="w-4 h-4" />
+            <Smartphone className="w-4 h-4 shrink-0" />
             <span>Links & QR</span>
           </button>
         </div>
@@ -840,6 +853,13 @@ export const AdminView = () => {
 
             </div>
           </div>
+        )}
+
+        {/* ============================================================================== */}
+        {/* ABA: PERSONALIZAR CARDÁPIO E LOJA */}
+        {/* ============================================================================== */}
+        {activeTab === 'customization' && (
+          <StoreCustomizationAdmin />
         )}
 
       </div>

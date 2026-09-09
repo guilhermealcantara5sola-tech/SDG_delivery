@@ -5,7 +5,7 @@ import { formatCurrency } from '../../utils/formatters';
 import confetti from 'canvas-confetti';
 
 export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth }) => {
-  const { cart, removeFromCart, updateCartQuantity, createOrder, customer } = useOrder();
+  const { cart, removeFromCart, updateCartQuantity, createOrder, customer, storeSettings } = useOrder();
 
   const [deliveryType, setDeliveryType] = useState('delivery'); // 'delivery' | 'takeout'
   const [name, setName] = useState('');
@@ -28,7 +28,9 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
   if (!isOpen) return null;
 
   const subtotal = cart.reduce((acc, item) => acc + item.subtotal, 0);
-  const deliveryFee = deliveryType === 'delivery' ? 7.00 : 0;
+  const isFreeDelivery = storeSettings?.freeDeliveryThreshold > 0 && subtotal >= storeSettings.freeDeliveryThreshold;
+  const standardFee = Number(storeSettings?.deliveryFee) >= 0 ? Number(storeSettings.deliveryFee) : 7.00;
+  const deliveryFee = deliveryType === 'delivery' ? (isFreeDelivery ? 0 : standardFee) : 0;
   const total = subtotal + deliveryFee;
 
   const handleCheckout = (sendToWhatsapp = false) => {

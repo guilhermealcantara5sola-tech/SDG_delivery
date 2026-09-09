@@ -25,6 +25,25 @@ const OrderContext = createContext();
 const BROADCAST_CHANNEL_NAME = 'sdg_delivery_sync_channel';
 const LOCAL_STORAGE_KEY = 'sdg_delivery_orders_v1';
 const PRODUCTS_STORAGE_KEY = 'sdg_delivery_products_v1';
+const SETTINGS_STORAGE_KEY = 'sdg_delivery_settings_v1';
+
+export const DEFAULT_STORE_SETTINGS = {
+  restaurantName: 'SDG Burger & Pizza',
+  slogan: 'Artesanais, Pizzas & Delivery no WhatsApp',
+  logoUrl: '',
+  coverUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80',
+  themeColor: 'amber', // 'amber' | 'orange' | 'rose' | 'emerald' | 'purple' | 'blue'
+  isOpen: true,
+  closedMessage: 'No momento estamos fechados. Nosso horário de atendimento é de Terça a Domingo das 18h às 23h30.',
+  deliveryTime: '30 - 45 min',
+  deliveryFee: 7.00,
+  freeDeliveryThreshold: 80.00,
+  bannerNotice: '🔥 PROMOÇÃO: Frete Grátis em pedidos acima de R$ 80!',
+  showBannerNotice: true,
+  phoneSupport: '(11) 99999-8888',
+  address: 'Rua Principal do Delivery, 500 - Centro',
+  openingHours: 'Terça a Domingo: 18:00 às 23:30'
+};
 
 // Web Audio API ding-dong notification sound generator (Anota AI style)
 const playAlertSound = (type = 'new_order') => {
@@ -102,6 +121,34 @@ export const OrderProvider = ({ children }) => {
 
   const [cart, setCart] = useState([]);
   const [printTicket, setPrintTicket] = useState(null);
+
+  // Configurações e Personalização da Loja / Cardápio
+  const [storeSettings, setStoreSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (saved) return { ...DEFAULT_STORE_SETTINGS, ...JSON.parse(saved) };
+    } catch (e) {
+      console.error(e);
+    }
+    return DEFAULT_STORE_SETTINGS;
+  });
+
+  const updateStoreSettings = (newSettings) => {
+    setStoreSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updated));
+
+      if (window.BroadcastChannel) {
+        try {
+          const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+          channel.postMessage({ type: 'SYNC_SETTINGS', data: updated });
+          channel.close();
+        } catch (e) {}
+      }
+      return updated;
+    });
+    playAlertSound('confirm');
+  };
 
   // Sessão do Cliente (Login com 6 dígitos e Fidelidade)
   const [customer, setCustomer] = useState(() => {
@@ -228,6 +275,8 @@ export const OrderProvider = ({ children }) => {
         if (event.data && event.data.type === 'SYNC_ORDERS') {
           setOrders(event.data.data);
           playAlertSound('new_order');
+        } else if (event.data && event.data.type === 'SYNC_SETTINGS') {
+          setStoreSettings(event.data.data);
         }
       };
     }
@@ -236,6 +285,12 @@ export const OrderProvider = ({ children }) => {
       if (e.key === LOCAL_STORAGE_KEY && e.newValue) {
         try {
           setOrders(JSON.parse(e.newValue));
+        } catch (err) {
+          console.error(err);
+        }
+      } else if (e.key === SETTINGS_STORAGE_KEY && e.newValue) {
+        try {
+          setStoreSettings(JSON.parse(e.newValue));
         } catch (err) {
           console.error(err);
         }
@@ -373,7 +428,12 @@ export const OrderProvider = ({ children }) => {
 
   // Create new order from client (saves to local state and Supabase DB)
   const createOrder = (customerDetails) => {
-    const total = cart.reduce((acc, item) => acc + item.subtotal, 0) + (customerDetails.deliveryType === 'delivery' ? 7.00 : 0);
+    const itemsSubtotal = cart.reduce((acc, item) => acc + item.subtotal, 0);
+    const isFree = storeSettings.freeDeliveryThreshold > 0 && itemsSubtotal >= storeSettings.freeDeliveryThreshold;
+    const deliveryFee = customerDetails.deliveryType === 'delivery'
+      ? (isFree ? 0 : (Number(storeSettings.deliveryFee) || 7.00))
+      : 0;
+    const total = itemsSubtotal + deliveryFee;
     
     const newOrder = {
       id: `PED-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -582,7 +642,10 @@ export const OrderProvider = ({ children }) => {
       registerCustomer,
       logoutCustomer,
       updateCustomerAddress,
-      reorder
+      reorder,
+      // Store Settings & Personalização do Cardápio
+      storeSettings,
+      updateStoreSettings
     }}>
       {children}
     </OrderContext.Provider>
