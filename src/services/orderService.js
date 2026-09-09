@@ -555,4 +555,54 @@ export const deleteCustomerInDb = async (customerId) => {
   }
 };
 
+/**
+ * Busca as configurações da loja / personalização no Supabase.
+ */
+export const fetchStoreSettingsFromDb = async () => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { data: null, error: null };
+
+  try {
+    const { data, error } = await supabase
+      .from('store_settings')
+      .select('*')
+      .eq('id', 'default')
+      .maybeSingle();
+
+    if (error) {
+      // Retorna null silenciosamente se a tabela ainda não existir
+      return { data: null, error };
+    }
+    return { data: data?.settings || null, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
+
+/**
+ * Salva as configurações da loja / personalização no Supabase.
+ */
+export const saveStoreSettingsToDb = async (settings) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { success: false, error: null };
+
+  try {
+    const { data, error } = await supabase
+      .from('store_settings')
+      .upsert({
+        id: 'default',
+        name: settings?.restaurantName || 'SDG Delivery',
+        settings: settings,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+
+    if (error) throw error;
+    return { success: true, error: null };
+  } catch (error) {
+    console.warn('Persistência store_settings via Supabase indisponível (mantendo local):', error?.message);
+    return { success: false, error };
+  }
+};
+
+
 

@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import {
   Palette, Image, Sparkles, Check, Clock, DollarSign,
-  Phone, MapPin, Store, AlertTriangle, Eye, Upload, CheckCircle2, Utensils
+  Phone, MapPin, Store, AlertTriangle, Eye, Upload, CheckCircle2,
+  Utensils, ExternalLink, MessageCircle, Sliders, Smartphone, Star
 } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency } from '../../utils/formatters';
+import { THEME_PRESETS, isHexColorLight, formatWhatsAppLink, formatInstagramInfo } from '../../utils/theme';
+import { WhatsAppIcon, InstagramIcon } from '../common/BrandIcons';
 
 const PRESET_COVERS = [
   {
-    name: 'Burger & Chapa',
+    name: 'Burger Gourmet',
     url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80'
   },
   {
@@ -16,24 +19,30 @@ const PRESET_COVERS = [
     url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80'
   },
   {
-    name: 'Gourmet Noturno',
+    name: 'Açaí & Sobremesas',
+    url: 'https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    name: 'Sushi & Culinária Oriental',
+    url: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    name: 'Gourmet Noturno & Bar',
     url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80'
   },
   {
     name: 'American Diner',
     url: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    name: 'Bar & Grill Rústico',
-    url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80'
   }
 ];
 
 const PRESET_LOGOS = [
   { name: 'Ícone Padrão', url: '' },
-  { name: 'Burger Retrô', url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80' },
+  { name: 'Smash Burger', url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80' },
   { name: 'Pizza Artesanal', url: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=300&q=80' },
-  { name: 'Chama & Fogo', url: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=300&q=80' }
+  { name: 'Açaí Tropical', url: 'https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?auto=format&fit=crop&w=300&q=80' },
+  { name: 'Sushi Bar', url: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=300&q=80' },
+  { name: 'Doceria & Bolos', url: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=300&q=80' }
 ];
 
 export const StoreCustomizationAdmin = () => {
@@ -44,7 +53,9 @@ export const StoreCustomizationAdmin = () => {
     slogan: storeSettings?.slogan || 'Artesanais, Pizzas & Delivery no WhatsApp',
     logoUrl: storeSettings?.logoUrl || '',
     coverUrl: storeSettings?.coverUrl || PRESET_COVERS[0].url,
-    themeColor: storeSettings?.themeColor || 'amber',
+    themePreset: storeSettings?.themePreset || 'amber',
+    primaryColor: storeSettings?.primaryColor || '#f59e0b',
+    secondaryColor: storeSettings?.secondaryColor || '#ea580c',
     isOpen: storeSettings?.isOpen !== false,
     closedMessage: storeSettings?.closedMessage || 'Estamos fechados no momento. Nosso horário de atendimento é de Terça a Domingo das 18h às 23h30.',
     deliveryTime: storeSettings?.deliveryTime || '30 - 45 min',
@@ -53,11 +64,24 @@ export const StoreCustomizationAdmin = () => {
     bannerNotice: storeSettings?.bannerNotice || '🔥 PROMOÇÃO: Frete Grátis em pedidos acima de R$ 80!',
     showBannerNotice: storeSettings?.showBannerNotice !== false,
     phoneSupport: storeSettings?.phoneSupport || '(11) 99999-8888',
+    whatsapp: storeSettings?.whatsapp || '(11) 99999-8888',
+    whatsappMessage: storeSettings?.whatsappMessage || 'Olá! Vim pelo cardápio digital e gostaria de tirar uma dúvida.',
+    showFloatingWhatsApp: storeSettings?.showFloatingWhatsApp !== false,
+    instagram: storeSettings?.instagram || '@sdgdelivery',
     address: storeSettings?.address || 'Rua Principal do Delivery, 500 - Centro',
     openingHours: storeSettings?.openingHours || 'Terça a Domingo: 18:00 às 23:30'
   });
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const handleSelectPreset = (preset) => {
+    setFormData(prev => ({
+      ...prev,
+      themePreset: preset.id,
+      primaryColor: preset.primary,
+      secondaryColor: preset.secondary
+    }));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -74,27 +98,37 @@ export const StoreCustomizationAdmin = () => {
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 
+  const isLight = isHexColorLight(formData.primaryColor);
+  const contrastText = isLight ? '#0f172a' : '#ffffff';
+
+  const previewWhatsappUrl = formatWhatsAppLink(formData.whatsapp || formData.phoneSupport, formData.whatsappMessage);
+  const { handle: previewIgHandle, url: previewIgUrl } = formatInstagramInfo(formData.instagram);
+
   return (
     <div className="space-y-8">
       {/* Header da Seção */}
       <div className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold uppercase mb-2">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[var(--brand-primary,#f59e0b)]/10 border border-[var(--brand-primary,#f59e0b)]/20 text-[var(--brand-primary,#f59e0b)] text-xs font-bold uppercase mb-2">
             <Palette className="w-3.5 h-3.5" />
-            <span>Identidade Visual & Experiência do Cliente</span>
+            <span>Identidade Visual, Cores & Redes Sociais</span>
           </div>
-          <h2 className="text-2xl font-black text-white">Personalização do Cardápio Digital</h2>
+          <h2 className="text-2xl font-black text-white">Personalização do Cardápio do Cliente</h2>
           <p className="text-slate-400 text-xs sm:text-sm mt-1">
-            Personalize o nome da lanchonete, foto de capa, logo, avisos de promoção no topo e taxas de entrega.
+            Configure o nome do seu delivery, logotipo, cores da sua marca, WhatsApp oficial e Instagram para os clientes.
           </p>
         </div>
 
         <button
           onClick={handleSubmit}
-          className="py-3 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center space-x-2 shrink-0 self-start md:self-center active:scale-95"
+          style={{
+            backgroundColor: formData.primaryColor,
+            color: contrastText
+          }}
+          className="py-3 px-6 rounded-2xl font-black text-xs sm:text-sm transition-all shadow-lg flex items-center justify-center space-x-2 shrink-0 self-start md:self-center active:scale-95 hover:brightness-105"
         >
           <Check className="w-4 h-4 stroke-[3]" />
-          <span>{savedSuccess ? 'Salvo com Sucesso!' : 'Salvar Alterações'}</span>
+          <span>{savedSuccess ? 'Salvo no Banco & Nuvem!' : 'Salvar Alterações'}</span>
         </button>
       </div>
 
@@ -104,11 +138,114 @@ export const StoreCustomizationAdmin = () => {
         {/* Formulário de Configuração (7 cols) */}
         <form onSubmit={handleSubmit} className="lg:col-span-7 space-y-6">
           
-          {/* GRUPO 1: IDENTIDADE DO ESTABELECIMENTO */}
+          {/* GRUPO 1: CORES E IDENTIDADE VISUAL */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
             <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center space-x-2 pb-2 border-b border-slate-800">
-              <Store className="w-4 h-4 text-amber-400" />
-              <span>1. Identidade do Restaurante</span>
+              <Palette className="w-4 h-4 text-[var(--brand-primary,#f59e0b)]" />
+              <span>1. Cores da Marca (Paleta do Cardápio)</span>
+            </h3>
+
+            <p className="text-xs text-slate-400">
+              Escolha uma paleta gastronômica pronta ou defina exatamente o código hexadecimal da cor da sua empresa:
+            </p>
+
+            {/* Paletas Rápidas com 1 clique */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {THEME_PRESETS.map((preset) => {
+                const isSelected = formData.themePreset === preset.id || (formData.primaryColor === preset.primary && formData.secondaryColor === preset.secondary);
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(preset)}
+                    className={`p-3 rounded-2xl border text-left transition-all ${
+                      isSelected
+                        ? 'border-white bg-slate-800/90 ring-2 ring-white/30 shadow-md'
+                        : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-1.5 mb-2">
+                      <span className="w-4 h-4 rounded-full shadow" style={{ backgroundColor: preset.primary }}></span>
+                      <span className="w-3 h-3 rounded-full opacity-80" style={{ backgroundColor: preset.secondary }}></span>
+                    </div>
+                    <div className="text-[11px] font-black text-white line-clamp-1">{preset.name}</div>
+                    <div className="text-[9px] text-slate-400 line-clamp-1">{preset.category}</div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Seletor Livre de Cores (Color Pickers) */}
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+              <span className="text-xs font-bold text-slate-300 block">Personalização Livre de Cores (Hexadecimal):</span>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                    Cor Primária (Botões, Sacola, Destaques)
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="color"
+                      value={formData.primaryColor}
+                      onChange={e => setFormData({ ...formData, primaryColor: e.target.value, themePreset: 'custom' })}
+                      className="w-10 h-10 rounded-xl cursor-pointer bg-transparent border-0 p-0"
+                    />
+                    <input
+                      type="text"
+                      value={formData.primaryColor}
+                      onChange={e => setFormData({ ...formData, primaryColor: e.target.value, themePreset: 'custom' })}
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase focus:border-[var(--brand-primary,#f59e0b)] outline-none"
+                      placeholder="#F59E0B"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                    Cor Secundária (Degradê & Detalhes)
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="color"
+                      value={formData.secondaryColor}
+                      onChange={e => setFormData({ ...formData, secondaryColor: e.target.value, themePreset: 'custom' })}
+                      className="w-10 h-10 rounded-xl cursor-pointer bg-transparent border-0 p-0"
+                    />
+                    <input
+                      type="text"
+                      value={formData.secondaryColor}
+                      onChange={e => setFormData({ ...formData, secondaryColor: e.target.value, themePreset: 'custom' })}
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase focus:border-[var(--brand-primary,#f59e0b)] outline-none"
+                      placeholder="#EA580C"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Botão de Exemplo */}
+              <div className="pt-2 flex items-center justify-between text-xs">
+                <span className="text-slate-400 text-[11px]">Exemplo de Botão no Cardápio:</span>
+                <div
+                  style={{
+                    background: `linear-gradient(135deg, ${formData.primaryColor}, ${formData.secondaryColor})`,
+                    color: contrastText
+                  }}
+                  className="px-4 py-2 rounded-xl font-black text-xs shadow-md flex items-center space-x-1.5"
+                >
+                  <span>Adicionar ao Pedido</span>
+                  <span>• R$ 34,90</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* GRUPO 2: LOGOTIPO, NOME & BANNER DA LOJA */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+            <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center space-x-2 pb-2 border-b border-slate-800">
+              <Store className="w-4 h-4 text-[var(--brand-primary,#f59e0b)]" />
+              <span>2. Nome, Logotipo & Banner</span>
             </h3>
 
             <div>
@@ -118,8 +255,8 @@ export const StoreCustomizationAdmin = () => {
                 required
                 value={formData.restaurantName}
                 onChange={e => setFormData({ ...formData, restaurantName: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-amber-500 outline-none font-bold"
-                placeholder="Ex: SDG Burger & Pizza"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-[var(--brand-primary,#f59e0b)] outline-none font-bold"
+                placeholder="Ex: Pizzaria Forno & Sabor, Burger do Chef, etc."
               />
             </div>
 
@@ -129,23 +266,93 @@ export const StoreCustomizationAdmin = () => {
                 type="text"
                 value={formData.slogan}
                 onChange={e => setFormData({ ...formData, slogan: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-amber-500 outline-none"
-                placeholder="Ex: Os melhores artesanais e pizzas da cidade no WhatsApp"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-[var(--brand-primary,#f59e0b)] outline-none"
+                placeholder="Ex: As melhores pizzas artesanais e hambúrgueres no WhatsApp"
               />
+            </div>
+
+            {/* Logotipo da Loja */}
+            <div className="space-y-2 pt-1">
+              <label className="block text-xs font-bold text-slate-300">
+                Logotipo da Loja (URL da Imagem)
+              </label>
+              <div className="flex items-center space-x-3">
+                <div className="w-14 h-14 rounded-2xl bg-slate-950 border-2 border-slate-800 overflow-hidden flex items-center justify-center shrink-0 p-1 shadow-md">
+                  {formData.logoUrl ? (
+                    <img
+                      src={formData.logoUrl}
+                      alt="Logo"
+                      className="w-full h-full object-cover rounded-xl"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div
+                      style={{ background: `linear-gradient(135deg, ${formData.primaryColor}, ${formData.secondaryColor})` }}
+                      className="w-full h-full rounded-xl flex items-center justify-center"
+                    >
+                      <Utensils className="w-6 h-6 text-slate-950 stroke-[2.5]" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 space-y-1">
+                  <input
+                    type="url"
+                    value={formData.logoUrl}
+                    onChange={e => setFormData({ ...formData, logoUrl: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:border-[var(--brand-primary,#f59e0b)] outline-none"
+                    placeholder="https://exemplo.com/sua-logo.png (ou cole o link da sua imagem)"
+                  />
+                  {formData.logoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, logoUrl: '' })}
+                      className="text-[10px] text-rose-400 hover:underline"
+                    >
+                      Remover logotipo e usar ícone temático
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Modelos rápidos de Logo */}
+              <span className="text-[10px] text-slate-500 font-bold block uppercase mt-2">Ou escolha um modelo pronto:</span>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {PRESET_LOGOS.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, logoUrl: item.url })}
+                    className={`p-1.5 rounded-xl border text-center transition-all ${
+                      formData.logoUrl === item.url
+                        ? 'border-white bg-slate-800 ring-2 ring-white/20'
+                        : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="w-8 h-8 mx-auto rounded-lg overflow-hidden bg-slate-900 mb-1 flex items-center justify-center">
+                      {item.url ? (
+                        <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Utensils className="w-4 h-4 text-[var(--brand-primary,#f59e0b)]" />
+                      )}
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-300 block truncate">{item.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Imagem de Capa do Banner */}
             <div className="space-y-2 pt-2">
-              <label className="block text-xs font-bold text-slate-300">Foto de Capa do Cardápio (Banner)</label>
+              <label className="block text-xs font-bold text-slate-300">Foto de Capa do Cardápio (Banner Superior)</label>
               <input
                 type="url"
                 value={formData.coverUrl}
                 onChange={e => setFormData({ ...formData, coverUrl: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:border-amber-500 outline-none"
-                placeholder="URL da foto de capa"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:border-[var(--brand-primary,#f59e0b)] outline-none"
+                placeholder="URL da foto de capa (banner em alta resolução)"
               />
 
-              <span className="text-[10px] text-slate-500 font-bold block uppercase">Capas em Alta Resolução Prontas:</span>
+              <span className="text-[10px] text-slate-500 font-bold block uppercase">Capas em Alta Definição:</span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {PRESET_COVERS.map((cov, idx) => (
                   <button
@@ -154,7 +361,7 @@ export const StoreCustomizationAdmin = () => {
                     onClick={() => setFormData({ ...formData, coverUrl: cov.url })}
                     className={`relative h-14 rounded-xl overflow-hidden border text-left p-1.5 transition-all group ${
                       formData.coverUrl === cov.url
-                        ? 'border-amber-400 ring-2 ring-amber-400/30'
+                        ? 'border-white ring-2 ring-white/30'
                         : 'border-slate-800 hover:border-slate-700'
                     }`}
                   >
@@ -167,34 +374,107 @@ export const StoreCustomizationAdmin = () => {
                 ))}
               </div>
             </div>
+          </div>
 
-            {/* Logotipo */}
-            <div className="space-y-2 pt-2">
-              <label className="block text-xs font-bold text-slate-300">Foto de Perfil / Logotipo (URL)</label>
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center shrink-0">
-                  {formData.logoUrl ? (
-                    <img src={formData.logoUrl} alt="Logo" className="w-full h-full object-cover" />
-                  ) : (
-                    <Utensils className="w-5 h-5 text-amber-400" />
-                  )}
-                </div>
+          {/* GRUPO 3: CONTATOS OFICIAIS & REDES SOCIAIS (WHATSAPP & INSTAGRAM) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+            <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center space-x-2 pb-2 border-b border-slate-800">
+              <Phone className="w-4 h-4 text-emerald-400" />
+              <span>3. WhatsApp Oficial & Redes Sociais</span>
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* WhatsApp Oficial */}
+              <div className="space-y-1.5">
+                <label className="flex items-center space-x-1.5 text-xs font-bold text-slate-300">
+                  <WhatsAppIcon className="w-4 h-4" colored={false} />
+                  <span>WhatsApp Oficial com DDD *</span>
+                </label>
                 <input
-                  type="url"
-                  value={formData.logoUrl}
-                  onChange={e => setFormData({ ...formData, logoUrl: e.target.value })}
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:border-amber-500 outline-none"
-                  placeholder="URL do logotipo (ou deixe vazio para o ícone padrão)"
+                  type="text"
+                  required
+                  value={formData.whatsapp}
+                  onChange={e => setFormData({ ...formData, whatsapp: e.target.value, phoneSupport: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-emerald-500 outline-none font-bold"
+                  placeholder="(11) 99999-8888"
+                />
+                <span className="text-[10px] text-slate-500">Número para onde os clientes mandam mensagens</span>
+              </div>
+
+              {/* Instagram Oficial */}
+              <div className="space-y-1.5">
+                <label className="flex items-center space-x-1.5 text-xs font-bold text-slate-300">
+                  <InstagramIcon className="w-4 h-4" colored={false} />
+                  <span>Instagram da Loja (@usuario)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.instagram}
+                  onChange={e => setFormData({ ...formData, instagram: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-pink-500 outline-none font-bold"
+                  placeholder="@seurestaurante ou link do Instagram"
+                />
+                <span className="text-[10px] text-slate-500">Exibido no banner e no rodapé do cliente</span>
+              </div>
+            </div>
+
+            {/* Mensagem Inicial do WhatsApp */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">Mensagem Inicial ao Chamar no WhatsApp</label>
+              <input
+                type="text"
+                value={formData.whatsappMessage}
+                onChange={e => setFormData({ ...formData, whatsappMessage: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:border-emerald-500 outline-none"
+                placeholder="Ex: Olá! Vim pelo cardápio e gostaria de tirar uma dúvida."
+              />
+            </div>
+
+            {/* Switch Botão Flutuante do WhatsApp */}
+            <label className="flex items-center space-x-3 bg-slate-950 p-3 rounded-2xl border border-slate-800 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={formData.showFloatingWhatsApp}
+                onChange={e => setFormData({ ...formData, showFloatingWhatsApp: e.target.checked })}
+                className="w-4 h-4 rounded text-emerald-500 bg-slate-900 border-slate-700 focus:ring-emerald-500 cursor-pointer accent-emerald-500"
+              />
+              <div className="text-xs">
+                <span className="font-extrabold text-white block">Exibir Botão Flutuante do WhatsApp na Tela do Cliente</span>
+                <span className="text-slate-400 text-[11px]">Permite ao cliente tirar dúvidas a qualquer momento com 1 toque</span>
+              </div>
+            </label>
+
+            {/* Endereço Físico & Horários */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Endereço Completo da Loja</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={e => setFormData({ ...formData, address: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:border-slate-600 outline-none"
+                  placeholder="Rua, Número, Bairro - Cidade"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Horário de Atendimento</label>
+                <input
+                  type="text"
+                  value={formData.openingHours}
+                  onChange={e => setFormData({ ...formData, openingHours: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:border-slate-600 outline-none"
+                  placeholder="Ex: Terça a Domingo das 18h às 23h30"
                 />
               </div>
             </div>
           </div>
 
-          {/* GRUPO 2: FAIXA DE AVISO / PROMOÇÃO NO TOPO */}
+          {/* GRUPO 4: FAIXA DE AVISO / PROMOÇÃO NO TOPO */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
             <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center space-x-2 pb-2 border-b border-slate-800">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>2. Faixa de Promoção no Topo do Cardápio</span>
+              <Sparkles className="w-4 h-4 text-[var(--brand-primary,#f59e0b)]" />
+              <span>4. Faixa de Anúncio / Promoção no Topo</span>
             </h3>
 
             <label className="flex items-center space-x-3 bg-slate-950 p-3 rounded-2xl border border-slate-800 cursor-pointer select-none">
@@ -202,38 +482,38 @@ export const StoreCustomizationAdmin = () => {
                 type="checkbox"
                 checked={formData.showBannerNotice}
                 onChange={e => setFormData({ ...formData, showBannerNotice: e.target.checked })}
-                className="w-4 h-4 rounded text-amber-500 bg-slate-900 border-slate-700 focus:ring-amber-500 cursor-pointer accent-amber-500"
+                className="w-4 h-4 rounded text-amber-500 bg-slate-900 border-slate-700 cursor-pointer accent-amber-500"
               />
               <div className="text-xs">
-                <span className="font-extrabold text-white block">Exibir Faixa de Comunicado / Promoção</span>
-                <span className="text-slate-400 text-[11px]">Aparece em destaque no topo da tela do cliente</span>
+                <span className="font-extrabold text-white block">Exibir Faixa Promocional no Topo do Cardápio</span>
+                <span className="text-slate-400 text-[11px]">Destaque animado visível no topo da página do cliente</span>
               </div>
             </label>
 
             {formData.showBannerNotice && (
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Texto do Comunicado / Promoção</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Texto da Promoção ou Comunicado</label>
                 <input
                   type="text"
                   value={formData.bannerNotice}
                   onChange={e => setFormData({ ...formData, bannerNotice: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-amber-500 outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-[var(--brand-primary,#f59e0b)] outline-none font-bold"
                   placeholder="Ex: 🔥 PROMOÇÃO: Frete Grátis em pedidos acima de R$ 80!"
                 />
               </div>
             )}
           </div>
 
-          {/* GRUPO 3: STATUS DA LOJA & REGRAS DE ENTREGA */}
+          {/* GRUPO 5: STATUS DA LOJA & REGRAS DE ENTREGA */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
             <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center space-x-2 pb-2 border-b border-slate-800">
               <Clock className="w-4 h-4 text-emerald-400" />
-              <span>3. Status da Loja & Regras de Entrega</span>
+              <span>5. Status da Loja & Regras de Entrega</span>
             </h3>
 
             {/* Aberto ou Fechado */}
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-2">Status Atual do Delivery</label>
+              <label className="block text-xs font-bold text-slate-300 mb-2">Status Atual de Atendimento</label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
@@ -264,7 +544,7 @@ export const StoreCustomizationAdmin = () => {
 
             {!formData.isOpen && (
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Mensagem de Loja Fechada para o Cliente</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Mensagem de Loja Fechada</label>
                 <textarea
                   rows={2}
                   value={formData.closedMessage}
@@ -282,18 +562,18 @@ export const StoreCustomizationAdmin = () => {
                   type="text"
                   value={formData.deliveryTime}
                   onChange={e => setFormData({ ...formData, deliveryTime: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-[var(--brand-primary,#f59e0b)] outline-none"
                   placeholder="Ex: 30 - 45 min"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Taxa Entrega (R$)</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Taxa Entrega Padrão (R$)</label>
                 <input
                   type="text"
                   value={formData.deliveryFee}
                   onChange={e => setFormData({ ...formData, deliveryFee: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 outline-none font-bold"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-[var(--brand-primary,#f59e0b)] outline-none font-bold"
                   placeholder="7,00"
                 />
               </div>
@@ -309,39 +589,18 @@ export const StoreCustomizationAdmin = () => {
                 />
               </div>
             </div>
-
-            {/* WhatsApp e Horário */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">WhatsApp de Suporte / Contato</label>
-                <input
-                  type="text"
-                  value={formData.phoneSupport}
-                  onChange={e => setFormData({ ...formData, phoneSupport: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 outline-none"
-                  placeholder="(11) 99999-8888"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Horário de Funcionamento</label>
-                <input
-                  type="text"
-                  value={formData.openingHours}
-                  onChange={e => setFormData({ ...formData, openingHours: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 outline-none"
-                  placeholder="Terça a Domingo das 18h às 23h30"
-                />
-              </div>
-            </div>
           </div>
 
           <button
             type="submit"
-            className="w-full py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm transition-all shadow-xl shadow-amber-500/20 flex items-center justify-center space-x-2"
+            style={{
+              background: `linear-gradient(135deg, ${formData.primaryColor}, ${formData.secondaryColor})`,
+              color: contrastText
+            }}
+            className="w-full py-4 rounded-2xl font-black text-sm transition-all shadow-xl flex items-center justify-center space-x-2 hover:brightness-105 active:scale-95"
           >
             <Check className="w-5 h-5 stroke-[3]" />
-            <span>Salvar Todas as Personalizações</span>
+            <span>Salvar Todas as Personalizações do Delivery</span>
           </button>
         </form>
 
@@ -350,18 +609,24 @@ export const StoreCustomizationAdmin = () => {
           <div className="sticky top-20">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
-                <Eye className="w-4 h-4 text-amber-400" />
+                <Smartphone className="w-4 h-4 text-[var(--brand-primary,#f59e0b)]" />
                 <span>Pré-Visualização do Cliente</span>
               </span>
               <span className="text-[10px] text-slate-500 font-bold">Atualização em tempo real</span>
             </div>
 
-            {/* Cartão Mockup */}
+            {/* Cartão Mockup Smartphone */}
             <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl relative">
               
-              {/* Promoção Marquee */}
+              {/* Promoção Marquee com a Cor da Marca */}
               {formData.showBannerNotice && formData.bannerNotice && (
-                <div className="bg-amber-500 text-slate-950 font-black text-[10px] py-1.5 px-3 text-center tracking-wide flex items-center justify-center space-x-1">
+                <div
+                  style={{
+                    background: `linear-gradient(135deg, ${formData.primaryColor}, ${formData.secondaryColor})`,
+                    color: contrastText
+                  }}
+                  className="font-black text-[10px] py-1.5 px-3 text-center tracking-wide flex items-center justify-center space-x-1"
+                >
                   <Sparkles className="w-3 h-3 shrink-0" />
                   <span className="truncate">{formData.bannerNotice}</span>
                 </div>
@@ -392,11 +657,14 @@ export const StoreCustomizationAdmin = () => {
               {/* Perfil & Info */}
               <div className="p-4 pt-0 -mt-8 relative space-y-3">
                 <div className="flex items-end space-x-3">
-                  <div className="w-16 h-16 rounded-xl bg-slate-950 border-2 border-slate-800 overflow-hidden flex items-center justify-center shrink-0 p-1">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-950 border-2 border-slate-800 overflow-hidden flex items-center justify-center shrink-0 p-1 shadow-lg">
                     {formData.logoUrl ? (
-                      <img src={formData.logoUrl} alt="Logo" className="w-full h-full object-cover rounded-lg" />
+                      <img src={formData.logoUrl} alt="Logo" className="w-full h-full object-cover rounded-xl" />
                     ) : (
-                      <div className="w-full h-full rounded-lg bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center">
+                      <div
+                        style={{ background: `linear-gradient(135deg, ${formData.primaryColor}, ${formData.secondaryColor})` }}
+                        className="w-full h-full rounded-xl flex items-center justify-center"
+                      >
                         <Utensils className="w-6 h-6 text-slate-950 stroke-[2.5]" />
                       </div>
                     )}
@@ -407,7 +675,7 @@ export const StoreCustomizationAdmin = () => {
                       <h4 className="text-base font-black text-white leading-tight">
                         {formData.restaurantName || 'Nome do Delivery'}
                       </h4>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     </div>
                     <p className="text-[10px] text-slate-400 line-clamp-1">
                       {formData.slogan || 'Slogan ou descrição da sua loja'}
@@ -415,10 +683,28 @@ export const StoreCustomizationAdmin = () => {
                   </div>
                 </div>
 
+                {/* Botões de Redes Sociais no Mockup */}
+                <div className="flex items-center space-x-2 pt-1">
+                  {formData.whatsapp && (
+                    <div className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-[#25D366]/20 text-[#25D366] text-[10px] font-extrabold border border-[#25D366]/30">
+                      <WhatsAppIcon className="w-3 h-3" colored={false} />
+                      <span>WhatsApp</span>
+                    </div>
+                  )}
+
+                  {formData.instagram && (
+                    <div className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-pink-500/20 text-pink-400 text-[10px] font-extrabold border border-pink-500/30">
+                      <InstagramIcon className="w-3 h-3" colored={false} />
+                      <span>{previewIgHandle || '@instagram'}</span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Métricas do Mockup */}
                 <div className="flex flex-wrap gap-1.5 text-[10px] font-bold text-slate-300">
-                  <div className="bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
-                    ⭐ 4.9
+                  <div className="bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 flex items-center space-x-1">
+                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                    <span>4.9</span>
                   </div>
                   <div className="bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
                     🕒 {formData.deliveryTime || '30 - 45 min'}
@@ -426,6 +712,17 @@ export const StoreCustomizationAdmin = () => {
                   <div className="bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
                     🛵 {formData.deliveryFee ? `R$ ${formData.deliveryFee}` : 'Grátis'}
                   </div>
+                </div>
+
+                {/* Exemplo de Botão no Mockup com a cor escolhida */}
+                <div
+                  style={{
+                    backgroundColor: formData.primaryColor,
+                    color: contrastText
+                  }}
+                  className="p-2.5 rounded-xl font-extrabold text-xs text-center shadow-lg"
+                >
+                  Ver Sacola de Pedidos
                 </div>
 
                 {!formData.isOpen && (
@@ -438,10 +735,10 @@ export const StoreCustomizationAdmin = () => {
 
             </div>
 
-            <div className="mt-4 p-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-400 space-y-1">
-              <span className="font-bold text-amber-400 block">💡 Dica do Delivery:</span>
+            <div className="mt-4 p-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-400 space-y-1.5">
+              <span className="font-bold text-[var(--brand-primary,#f59e0b)] block">💡 Dica para o Dono do Negócio:</span>
               <p className="text-[11px] leading-relaxed">
-                Fotos atraentes de capa e banners promocionais de frete grátis podem aumentar as conversões de pedidos em até 35%.
+                As configurações de cores e logotipo sincronizam automaticamente em todos os celulares dos clientes e na nuvem.
               </p>
             </div>
           </div>

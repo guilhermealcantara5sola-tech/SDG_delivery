@@ -6,6 +6,51 @@
   }
 }
 
+/* ==============================================================================
+   🎨 Dynamic Brand Colors & Variables
+   ============================================================================== */
+:root {
+  --brand-primary: #f59e0b;
+  --brand-secondary: #ea580c;
+  --brand-contrast: #0f172a;
+}
+
+.bg-brand-primary {
+  background-color: var(--brand-primary, #f59e0b) !important;
+}
+
+.bg-brand-secondary {
+  background-color: var(--brand-secondary, #ea580c) !important;
+}
+
+.text-brand-primary {
+  color: var(--brand-primary, #f59e0b) !important;
+}
+
+.text-brand-contrast {
+  color: var(--brand-contrast, #0f172a) !important;
+}
+
+.border-brand-primary {
+  border-color: var(--brand-primary, #f59e0b) !important;
+}
+
+.border-brand-primary-light {
+  border-color: color-mix(in srgb, var(--brand-primary, #f59e0b) 35%, transparent) !important;
+}
+
+.bg-brand-primary-light {
+  background-color: color-mix(in srgb, var(--brand-primary, #f59e0b) 15%, transparent) !important;
+}
+
+.bg-brand-gradient {
+  background: linear-gradient(135deg, var(--brand-primary, #f59e0b), var(--brand-secondary, #ea580c)) !important;
+}
+
+.shadow-brand {
+  box-shadow: 0 10px 25px -5px color-mix(in srgb, var(--brand-primary, #f59e0b) 30%, transparent) !important;
+}
+
 /* Formatação de cupom térmico para impressão não fiscal (80mm / 58mm) */
 @page {
   size: 80mm auto;

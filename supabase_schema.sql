@@ -96,11 +96,20 @@ create trigger on_order_created_sync_customer
   for each row
   execute function public.handle_order_customer_sync();
 
+-- 5.1. TABELA DE PERSONALIZAÇÃO DA LOJA (store_settings)
+create table if not exists public.store_settings (
+  id text primary key default 'default',
+  name text not null default 'SDG Burger & Pizza',
+  settings jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
 -- 7. PERMISSÕES DE ACESSO (Row Level Security - RLS)
 alter table public.customers enable row level security;
 alter table public.categories enable row level security;
 alter table public.products enable row level security;
 alter table public.orders enable row level security;
+alter table public.store_settings enable row level security;
 
 drop policy if exists "allow_all_customers" on public.customers;
 create policy "allow_all_customers" on public.customers for all using (true) with check (true);
@@ -114,6 +123,9 @@ create policy "allow_all_products" on public.products for all using (true) with 
 drop policy if exists "allow_all_orders" on public.orders;
 create policy "allow_all_orders" on public.orders for all using (true) with check (true);
 
+drop policy if exists "allow_all_store_settings" on public.store_settings;
+create policy "allow_all_store_settings" on public.store_settings for all using (true) with check (true);
+
 -- 8. HABILITAR SINCRONIZAÇÃO EM TEMPO REAL (REALTIME - BLINDADO)
 do $$
 begin
@@ -123,6 +135,10 @@ begin
   end;
   begin
     alter publication supabase_realtime add table public.customers;
+  exception when others then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.store_settings;
   exception when others then null;
   end;
 end $$;

@@ -3,7 +3,7 @@ import { useOrder } from '../../context/OrderContext';
 import { Monitor, ChefHat, ExternalLink, BarChart3, ShieldCheck } from 'lucide-react';
 
 export const Header = () => {
-  const { currentView, setCurrentView, orders, dbStatus } = useOrder();
+  const { currentView, setCurrentView, orders, dbStatus, storeSettings } = useOrder();
 
   const pendingBalcaoCount = orders.filter(o => o.status === 'aguardando_pagamento').length;
   const kitchenActiveCount = orders.filter(o => o.status === 'pagamento_confirmado' || o.status === 'em_preparo').length;
@@ -15,16 +15,27 @@ export const Header = () => {
           
           {/* Logo / Title */}
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center shadow-md shadow-orange-500/20">
-              <ShieldCheck className="w-5 h-5 text-slate-950 stroke-[2.5]" />
+            <div className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center shadow-md p-0.5">
+              {storeSettings?.logoUrl ? (
+                <img
+                  src={storeSettings.logoUrl}
+                  alt="Logo"
+                  className="w-full h-full object-cover rounded-lg"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              ) : (
+                <div className="w-full h-full rounded-lg bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5 text-slate-950 stroke-[2.5]" />
+                </div>
+              )}
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="text-base font-black tracking-tight text-white">
-                  SDG Gestor
+                <span className="text-base font-black tracking-tight text-white line-clamp-1 max-w-[180px] sm:max-w-xs">
+                  {storeSettings?.restaurantName || 'SDG Gestor'}
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/10 border border-amber-500/20 text-amber-400 uppercase">
-                  Equipe
+                  Gestão
                 </span>
               </div>
               <div className="text-[11px] text-slate-400">Painel interno do restaurante</div>

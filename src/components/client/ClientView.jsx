@@ -6,18 +6,26 @@ import { ProductModal } from './ProductModal';
 import { CartDrawer } from './CartDrawer';
 import { OrderStatusModal } from './OrderStatusModal';
 import { CustomerAuthModal } from './CustomerAuthModal';
+import { FloatingWhatsAppButton } from './FloatingWhatsAppButton';
+import { StoreFooter } from './StoreFooter';
 import { useOrder } from '../../context/OrderContext';
 import { ShoppingBag, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
+import { isHexColorLight } from '../../utils/theme';
 
 export const ClientView = () => {
-  const { cart, setCurrentView, products, categories } = useOrder();
+  const { cart, setCurrentView, products, categories, storeSettings } = useOrder();
   const [activeCategory, setActiveCategory] = useState('todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCustomerAuthOpen, setIsCustomerAuthOpen] = useState(false);
   const [activeOrderTrack, setActiveOrderTrack] = useState(null);
+
+  const primaryColor = storeSettings?.primaryColor || '#f59e0b';
+  const secondaryColor = storeSettings?.secondaryColor || '#ea580c';
+  const isLight = isHexColorLight(primaryColor);
+  const contrastText = isLight ? '#0f172a' : '#ffffff';
 
   // Filter products by active status, category and search term
   const activeProducts = (products || []).filter(p => p.isActive !== false);
@@ -35,10 +43,10 @@ export const ClientView = () => {
   const realCategories = (categories || []).filter(c => c.id !== 'todos');
 
   return (
-    <div className="min-h-screen pb-28">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         
-        {/* Banner com atalhos de fidelidade e carrinho */}
+        {/* Banner com atalhos de fidelidade, logo, cores e contatos oficiais */}
         <HeaderBanner
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -46,7 +54,7 @@ export const ClientView = () => {
           onOpenCustomerAuth={() => setIsCustomerAuthOpen(true)}
         />
 
-        {/* Category Navbar (Sticky on mobile & desktop) */}
+        {/* Category Navbar (Sticky on mobile & desktop com a cor da marca) */}
         <CategoryNav
           activeCategory={activeCategory}
           setActiveCategory={setActiveCategory}
@@ -58,7 +66,8 @@ export const ClientView = () => {
             <p className="text-slate-400 text-sm font-medium">Nenhum produto encontrado para sua busca.</p>
             <button
               onClick={() => { setActiveCategory('todos'); setSearchQuery(''); }}
-              className="text-amber-400 text-xs font-bold hover:underline"
+              style={{ color: primaryColor }}
+              className="text-xs font-bold hover:underline"
             >
               Limpar filtros e ver cardápio completo
             </button>
@@ -111,19 +120,32 @@ export const ClientView = () => {
 
       </div>
 
+      {/* Rodapé Oficial da Loja com Logotipo, WhatsApp e Instagram */}
+      <StoreFooter />
+
       {/* Floating Bottom Cart Bar for Mobile */}
       {cart.length > 0 && !isCartOpen && (
         <div className="fixed bottom-4 left-4 right-4 z-30 max-w-md mx-auto">
           <button
             onClick={() => setIsCartOpen(true)}
-            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold p-4 rounded-2xl shadow-2xl shadow-amber-500/20 flex items-center justify-between transition-transform active:scale-95 animate-bounce-subtle"
+            style={{
+              background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+              color: contrastText
+            }}
+            className="w-full font-extrabold p-4 rounded-2xl shadow-2xl flex items-center justify-between transition-transform active:scale-95 animate-bounce-subtle"
           >
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center text-xs font-extrabold">
+              <div
+                style={{
+                  backgroundColor: isLight ? '#0f172a' : '#ffffff',
+                  color: isLight ? '#ffffff' : '#0f172a'
+                }}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-extrabold shadow"
+              >
                 {totalCartQty}
               </div>
               <div className="text-left">
-                <div className="text-xs uppercase font-bold text-slate-950/80">Ver Carrinho</div>
+                <div className="text-xs uppercase font-bold opacity-80">Ver Carrinho</div>
                 <div className="text-sm font-black">{formatCurrency(totalCartValue)}</div>
               </div>
             </div>
@@ -134,6 +156,9 @@ export const ClientView = () => {
           </button>
         </div>
       )}
+
+      {/* Botão Flutuante do WhatsApp do Delivery */}
+      <FloatingWhatsAppButton />
 
       {/* Product Options Modal */}
       {selectedProduct && (

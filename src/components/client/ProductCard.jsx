@@ -1,8 +1,15 @@
 import React from 'react';
 import { Plus, Sparkles } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
+import { useOrder } from '../../context/OrderContext';
+import { isHexColorLight } from '../../utils/theme';
 
 export const ProductCard = ({ product, onSelectProduct, onSelect }) => {
+  const { storeSettings } = useOrder();
+  const primaryColor = storeSettings?.primaryColor || '#f59e0b';
+  const isLight = isHexColorLight(primaryColor);
+  const contrastText = isLight ? '#0f172a' : '#ffffff';
+
   const handleClick = () => {
     if (onSelectProduct) onSelectProduct(product);
     else if (onSelect) onSelect(product);
@@ -11,19 +18,26 @@ export const ProductCard = ({ product, onSelectProduct, onSelect }) => {
   return (
     <div
       onClick={handleClick}
-      className="group relative bg-slate-900/80 border border-slate-800/90 rounded-2xl p-4 hover:border-amber-500/50 hover:bg-slate-900 transition-all duration-200 flex items-center justify-between gap-4 cursor-pointer shadow-md hover:shadow-xl"
+      className="group relative bg-slate-900/80 border border-slate-800/90 rounded-2xl p-4 hover:border-slate-700 hover:bg-slate-900 transition-all duration-200 flex items-center justify-between gap-4 cursor-pointer shadow-md hover:shadow-xl"
     >
       {/* Product Info (Left Side) */}
       <div className="flex-1 min-w-0 space-y-1.5">
         {/* Badge */}
         {product.badge && (
-          <div className="inline-flex items-center space-x-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider mb-1">
+          <div
+            style={{
+              backgroundColor: `color-mix(in srgb, ${primaryColor} 15%, transparent)`,
+              borderColor: `color-mix(in srgb, ${primaryColor} 30%, transparent)`,
+              color: primaryColor
+            }}
+            className="inline-flex items-center space-x-1 border text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider mb-1"
+          >
             <Sparkles className="w-2.5 h-2.5" />
             <span>{product.badge}</span>
           </div>
         )}
 
-        <h3 className="text-sm sm:text-base font-extrabold text-white group-hover:text-amber-400 transition-colors line-clamp-1">
+        <h3 className="text-sm sm:text-base font-extrabold text-white group-hover:text-white transition-colors line-clamp-1">
           {product.name}
         </h3>
 
@@ -52,8 +66,14 @@ export const ProductCard = ({ product, onSelectProduct, onSelect }) => {
           loading="lazy"
         />
         
-        {/* Plus / Add floating badge */}
-        <div className="absolute bottom-2 right-2 w-7 h-7 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-lg group-hover:bg-amber-400 group-hover:scale-110 transition-all">
+        {/* Plus / Add floating badge with brand color */}
+        <div
+          style={{
+            backgroundColor: primaryColor,
+            color: contrastText
+          }}
+          className="absolute bottom-2 right-2 w-7 h-7 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all hover:brightness-105"
+        >
           <Plus className="w-4 h-4 stroke-[3]" />
         </div>
       </div>

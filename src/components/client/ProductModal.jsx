@@ -2,12 +2,18 @@ import React, { useState } from 'react';
 import { X, Plus, Minus, Check, ShoppingBag } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import { useOrder } from '../../context/OrderContext';
+import { isHexColorLight } from '../../utils/theme';
 
 export const ProductModal = ({ product, onClose }) => {
-  const { addToCart } = useOrder();
+  const { addToCart, storeSettings } = useOrder();
   const [quantity, setQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [observation, setObservation] = useState('');
+
+  const primaryColor = storeSettings?.primaryColor || '#f59e0b';
+  const secondaryColor = storeSettings?.secondaryColor || '#ea580c';
+  const isLight = isHexColorLight(primaryColor);
+  const contrastText = isLight ? '#0f172a' : '#ffffff';
 
   if (!product) return null;
 
@@ -78,7 +84,13 @@ export const ProductModal = ({ product, onClose }) => {
             <div key={idx} className="space-y-2.5 bg-slate-950/80 p-3.5 sm:p-4 rounded-2xl border border-slate-800">
               <div className="flex justify-between items-center pb-1">
                 <h4 className="text-xs sm:text-sm font-black text-slate-200 uppercase tracking-wide">{group.name}</h4>
-                <span className="text-[10px] text-amber-400 font-bold uppercase bg-amber-500/10 px-2 py-0.5 rounded-md">
+                <span
+                  style={{
+                    color: primaryColor,
+                    backgroundColor: `color-mix(in srgb, ${primaryColor} 15%, transparent)`
+                  }}
+                  className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md"
+                >
                   {group.type === 'radio' ? 'Escolha 1' : 'Opcional'}
                 </span>
               </div>
@@ -90,19 +102,30 @@ export const ProductModal = ({ product, onClose }) => {
                     <div
                       key={itemIdx}
                       onClick={() => handleOptionToggle(group, item)}
+                      style={isSelected ? {
+                        borderColor: primaryColor,
+                        backgroundColor: `color-mix(in srgb, ${primaryColor} 15%, transparent)`
+                      } : {}}
                       className={`flex items-center justify-between p-3 rounded-xl cursor-pointer border transition-all text-xs font-bold active:scale-[0.98] ${
                         isSelected
-                          ? 'bg-amber-500/15 border-amber-500 text-amber-300 ring-1 ring-amber-500/30'
+                          ? 'ring-1 ring-white/20'
                           : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
                       }`}
                     >
                       <div className="flex items-center space-x-2.5">
-                        <div className={`w-4 h-4 rounded-md border flex items-center justify-center ${
-                          isSelected ? 'bg-amber-500 border-amber-400 text-slate-950' : 'border-slate-600'
-                        }`}>
+                        <div
+                          style={isSelected ? {
+                            backgroundColor: primaryColor,
+                            borderColor: primaryColor,
+                            color: contrastText
+                          } : {}}
+                          className={`w-4 h-4 rounded-md border flex items-center justify-center ${
+                            isSelected ? '' : 'border-slate-600'
+                          }`}
+                        >
                           {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                         </div>
-                        <span>{item.name}</span>
+                        <span style={{ color: isSelected ? primaryColor : undefined }}>{item.name}</span>
                       </div>
 
                       {item.price > 0 && (
@@ -125,7 +148,7 @@ export const ProductModal = ({ product, onClose }) => {
               onChange={(e) => setObservation(e.target.value)}
               placeholder="Ex: Tirar cebola, maionese à parte, caprichar no molho..."
               rows={2}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-all"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-700 transition-all"
             ></textarea>
           </div>
         </div>
@@ -150,10 +173,14 @@ export const ProductModal = ({ product, onClose }) => {
             </button>
           </div>
 
-          {/* Add Button */}
+          {/* Add Button with brand colors */}
           <button
             onClick={handleAddToCart}
-            className="flex-1 flex items-center justify-between px-4 sm:px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-xs sm:text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+            style={{
+              background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+              color: contrastText
+            }}
+            className="flex-1 flex items-center justify-between px-4 sm:px-5 py-3 rounded-xl font-black text-xs sm:text-sm hover:brightness-105 transition-all shadow-lg active:scale-95"
           >
             <div className="flex items-center space-x-1.5">
               <ShoppingBag className="w-4 h-4" />

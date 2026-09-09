@@ -17,8 +17,11 @@ import {
   saveProductInDb,
   deleteProductInDb,
   toggleProductActiveInDb,
-  updateCustomerInDb
+  updateCustomerInDb,
+  fetchStoreSettingsFromDb,
+  saveStoreSettingsToDb
 } from '../services/orderService';
+import { applyThemeToDocument } from '../utils/theme';
 
 const OrderContext = createContext();
 
@@ -32,7 +35,9 @@ export const DEFAULT_STORE_SETTINGS = {
   slogan: 'Artesanais, Pizzas & Delivery no WhatsApp',
   logoUrl: '',
   coverUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80',
-  themeColor: 'amber', // 'amber' | 'orange' | 'rose' | 'emerald' | 'purple' | 'blue'
+  themePreset: 'amber', // 'amber' | 'rose' | 'orange' | 'emerald' | 'purple' | 'blue' | 'pink' | 'dark' | 'custom'
+  primaryColor: '#f59e0b',
+  secondaryColor: '#ea580c',
   isOpen: true,
   closedMessage: 'No momento estamos fechados. Nosso horário de atendimento é de Terça a Domingo das 18h às 23h30.',
   deliveryTime: '30 - 45 min',
@@ -41,6 +46,10 @@ export const DEFAULT_STORE_SETTINGS = {
   bannerNotice: '🔥 PROMOÇÃO: Frete Grátis em pedidos acima de R$ 80!',
   showBannerNotice: true,
   phoneSupport: '(11) 99999-8888',
+  whatsapp: '(11) 99999-8888',
+  whatsappMessage: 'Olá! Vim pelo cardápio digital e gostaria de tirar uma dúvida.',
+  showFloatingWhatsApp: true,
+  instagram: '@sdgdelivery',
   address: 'Rua Principal do Delivery, 500 - Centro',
   openingHours: 'Terça a Domingo: 18:00 às 23:30'
 };
@@ -133,6 +142,26 @@ export const OrderProvider = ({ children }) => {
     return DEFAULT_STORE_SETTINGS;
   });
 
+  // Aplica cores do tema (CSS variables) dinamicamente no documento
+  useEffect(() => {
+    applyThemeToDocument(storeSettings?.primaryColor, storeSettings?.secondaryColor);
+  }, [storeSettings?.primaryColor, storeSettings?.secondaryColor]);
+
+  // Carrega configurações da loja do Supabase na inicialização
+  useEffect(() => {
+    fetchStoreSettingsFromDb().then(res => {
+      if (res.data && typeof res.data === 'object') {
+        setStoreSettings(prev => {
+          const merged = { ...prev, ...res.data };
+          try {
+            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(merged));
+          } catch (e) {}
+          return merged;
+        });
+      }
+    }).catch(console.error);
+  }, []);
+
   const updateStoreSettings = (newSettings) => {
     setStoreSettings(prev => {
       const updated = { ...prev, ...newSettings };
@@ -145,6 +174,10 @@ export const OrderProvider = ({ children }) => {
           channel.close();
         } catch (e) {}
       }
+
+      applyThemeToDocument(updated.primaryColor, updated.secondaryColor);
+      saveStoreSettingsToDb(updated).catch(console.error);
+
       return updated;
     });
     playAlertSound('confirm');

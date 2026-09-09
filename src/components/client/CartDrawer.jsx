@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { X, Trash2, Plus, Minus, Send, QrCode, CreditCard, Banknote, MapPin, Phone, User, ShoppingBag, ArrowRight, Award, Gift } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency } from '../../utils/formatters';
+import { WhatsAppIcon } from '../common/BrandIcons';
+import { isHexColorLight } from '../../utils/theme';
 import confetti from 'canvas-confetti';
 
 export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth }) => {
@@ -15,6 +17,11 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
   const [changeFor, setChangeFor] = useState('');
   const [observation, setObservation] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  const primaryColor = storeSettings?.primaryColor || '#f59e0b';
+  const secondaryColor = storeSettings?.secondaryColor || '#ea580c';
+  const isLight = isHexColorLight(primaryColor);
+  const contrastText = isLight ? '#0f172a' : '#ffffff';
 
   // Preenche automaticamente com os dados salvos do cliente
   React.useEffect(() => {
@@ -95,7 +102,10 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
       if (observation) msg += `*Obs:* ${observation}\n`;
 
       const encoded = encodeURIComponent(msg);
-      window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+      const targetDigits = String(storeSettings?.whatsapp || storeSettings?.phoneSupport || '').replace(/\D/g, '');
+      const fullTargetNumber = targetDigits ? (targetDigits.startsWith('55') && targetDigits.length >= 12 ? targetDigits : `55${targetDigits}`) : '';
+      const waUrl = fullTargetNumber ? `https://wa.me/${fullTargetNumber}?text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
+      window.open(waUrl, '_blank');
     }
 
     onClose();
@@ -109,7 +119,7 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
         {/* Drawer Header */}
         <div className="p-5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
-            <ShoppingBag className="w-5 h-5 text-amber-400" />
+            <ShoppingBag className="w-5 h-5" style={{ color: primaryColor }} />
             <h2 className="text-lg font-extrabold text-white">Seu Pedido</h2>
           </div>
           <button
@@ -192,19 +202,27 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
                 <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
                   <button
                     onClick={() => setDeliveryType('delivery')}
+                    style={deliveryType === 'delivery' ? {
+                      backgroundColor: primaryColor,
+                      color: contrastText
+                    } : {}}
                     className={`py-2 rounded-lg text-xs font-bold transition-all ${
                       deliveryType === 'delivery'
-                        ? 'bg-amber-500 text-slate-950 shadow-md'
+                        ? 'shadow-md'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    🛵 Entrega (+ R$ 7,00)
+                    🛵 Entrega ({deliveryFee > 0 ? `+ ${formatCurrency(deliveryFee)}` : 'Grátis'})
                   </button>
                   <button
                     onClick={() => setDeliveryType('takeout')}
+                    style={deliveryType === 'takeout' ? {
+                      backgroundColor: primaryColor,
+                      color: contrastText
+                    } : {}}
                     className={`py-2 rounded-lg text-xs font-bold transition-all ${
                       deliveryType === 'takeout'
-                        ? 'bg-amber-500 text-slate-950 shadow-md'
+                        ? 'shadow-md'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
@@ -382,7 +400,7 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
               )}
               <div className="flex justify-between text-base font-extrabold text-white pt-2 border-t border-slate-800">
                 <span>Total</span>
-                <span className="text-amber-400">{formatCurrency(total)}</span>
+                <span style={{ color: primaryColor }} className="font-black">{formatCurrency(total)}</span>
               </div>
             </div>
 
@@ -390,18 +408,22 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
             <div className="space-y-2">
               <button
                 onClick={() => handleCheckout(false)}
-                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95 flex items-center justify-center space-x-2"
+                style={{
+                  background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                  color: contrastText
+                }}
+                className="w-full py-3.5 px-4 rounded-xl font-extrabold text-sm hover:brightness-105 transition-all shadow-lg active:scale-95 flex items-center justify-center space-x-2"
               >
-                <span>Enviar Pedido para o Balcão</span>
+                <span>Confirmar Pedido (Balcão / Caixa)</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
               <button
                 onClick={() => handleCheckout(true)}
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 font-bold text-xs hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center space-x-2"
+                className="w-full py-2.5 px-4 rounded-xl bg-[#25D366]/15 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white font-bold text-xs transition-all flex items-center justify-center space-x-2"
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>Enviar também pelo WhatsApp</span>
+                <WhatsAppIcon className="w-4 h-4" colored={false} />
+                <span>Enviar Pedido pelo WhatsApp da Loja</span>
               </button>
             </div>
 
