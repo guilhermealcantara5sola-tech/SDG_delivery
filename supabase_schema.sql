@@ -60,7 +60,7 @@ create table public.orders (
   delivery_type text not null default 'delivery' check (delivery_type in ('delivery', 'takeout')),
   address text not null default '',
   payment_method text not null default 'pix' check (payment_method in ('pix', 'credit_card', 'cash')),
-  status text not null default 'aguardando_pagamento' check (status in ('aguardando_pagamento', 'pagamento_confirmado', 'em_preparo', 'pronto', 'entregue', 'cancelado')),
+  status text not null default 'aguardando_pagamento' check (status in ('aguardando_pagamento', 'pagamento_confirmado', 'em_preparo', 'pronto', 'saiu_para_entrega', 'entregue', 'cancelado')),
   total numeric(10, 2) not null default 0.00,
   observation text default '',
   items jsonb not null default '[]'::jsonb

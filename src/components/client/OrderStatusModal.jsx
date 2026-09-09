@@ -12,11 +12,17 @@ export const OrderStatusModal = ({ order, onClose }) => {
   const liveOrder = orders.find(o => o.id === order.id) || order;
   const statusInfo = STATUS_MAP[liveOrder.status] || STATUS_MAP.aguardando_pagamento;
 
+  const isDelivery = liveOrder.deliveryType === 'delivery';
+
   const steps = [
-    { key: 'aguardando_pagamento', label: '1. Pedido no Balcão', desc: 'Aguardando confirmação do pagamento no caixa' },
-    { key: 'pagamento_confirmado', label: '2. Pagamento Confirmado', desc: 'Pedido enviado para a linha de produção' },
-    { key: 'em_preparo', label: '3. Em Preparo na Cozinha', desc: 'Chefs preparando seus pratos com carinho' },
-    { key: 'pronto', label: '4. Pronto p/ Entrega', desc: 'Saiu para entrega ou pronto para retirada' }
+    { key: 'aguardando_pagamento', label: '1. Pedido Recebido', desc: 'Aguardando confirmação do pagamento no caixa' },
+    { key: 'pagamento_confirmado', label: '2. Confirmado', desc: 'Pedido enviado para a cozinha' },
+    { key: 'em_preparo', label: '3. Em Preparo', desc: 'Chefs preparando seus pratos com carinho' },
+    { key: 'pronto', label: isDelivery ? '4. Pronto p/ Saída' : '4. Pronto p/ Retirada', desc: isDelivery ? 'Embalado e aguardando o motoboy' : 'Pode retirar no balcão da loja!' },
+    ...(isDelivery ? [
+      { key: 'saiu_para_entrega', label: '5. Em Rota com Motoboy 🛵', desc: 'O entregador está a caminho do seu endereço!' }
+    ] : []),
+    { key: 'entregue', label: isDelivery ? 'Concluído' : 'Retirado', desc: 'Pedido entregue com sucesso. Bom apetite!' }
   ];
 
   const getStepStatus = (stepKey) => {

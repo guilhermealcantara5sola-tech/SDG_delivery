@@ -51,9 +51,16 @@ export const STATUS_MAP = {
     badgeBg: 'bg-emerald-500',
     icon: 'PackageCheck'
   },
+  saiu_para_entrega: {
+    label: 'Saiu para Entrega (Com Motoboy)',
+    shortLabel: 'Em Rota 🛵',
+    color: 'bg-amber-500/15 text-amber-400 border-amber-500/40',
+    badgeBg: 'bg-amber-500',
+    icon: 'Bike'
+  },
   entregue: {
     label: 'Concluído / Entregue',
-    shortLabel: 'Concluído',
+    shortLabel: 'Entregue',
     color: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
     badgeBg: 'bg-slate-500',
     icon: 'CheckCheck'

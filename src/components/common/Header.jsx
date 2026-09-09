@@ -1,12 +1,13 @@
 import React from 'react';
 import { useOrder } from '../../context/OrderContext';
-import { Monitor, ChefHat, ExternalLink, BarChart3, ShieldCheck } from 'lucide-react';
+import { Monitor, ChefHat, ExternalLink, BarChart3, ShieldCheck, Bike } from 'lucide-react';
 
 export const Header = () => {
   const { currentView, setCurrentView, orders, dbStatus, storeSettings } = useOrder();
 
   const pendingBalcaoCount = orders.filter(o => o.status === 'aguardando_pagamento').length;
   const kitchenActiveCount = orders.filter(o => o.status === 'pagamento_confirmado' || o.status === 'em_preparo').length;
+  const motoboyCount = orders.filter(o => o.deliveryType === 'delivery' && (o.status === 'pronto' || o.status === 'saiu_para_entrega')).length;
 
   return (
     <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-lg">
@@ -48,14 +49,14 @@ export const Header = () => {
             {/* View: Balcão / Caixa */}
             <button
               onClick={() => setCurrentView('counter')}
-              className={`relative flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`relative flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
                 currentView === 'counter'
                   ? 'bg-amber-500 text-slate-950 shadow-md'
                   : 'text-slate-300 hover:text-white hover:bg-slate-900'
               }`}
             >
               <Monitor className="w-3.5 h-3.5" />
-              <span>Balcão / Caixa</span>
+              <span>Balcão</span>
               {pendingBalcaoCount > 0 && (
                 <span className="ml-1 px-1.5 py-0.2 text-[10px] font-black bg-rose-500 text-white rounded-full animate-pulse">
                   {pendingBalcaoCount}
@@ -66,14 +67,14 @@ export const Header = () => {
             {/* View: Cozinha / KDS */}
             <button
               onClick={() => setCurrentView('kitchen')}
-              className={`relative flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`relative flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
                 currentView === 'kitchen'
                   ? 'bg-amber-500 text-slate-950 shadow-md'
                   : 'text-slate-300 hover:text-white hover:bg-slate-900'
               }`}
             >
               <ChefHat className="w-3.5 h-3.5" />
-              <span>Cozinha (KDS)</span>
+              <span>Cozinha</span>
               {kitchenActiveCount > 0 && (
                 <span className="ml-1 px-1.5 py-0.2 text-[10px] font-black bg-blue-500 text-white rounded-full">
                   {kitchenActiveCount}
@@ -81,17 +82,35 @@ export const Header = () => {
               )}
             </button>
 
+            {/* View: Motoboy / Entregas */}
+            <button
+              onClick={() => setCurrentView('motoboy')}
+              className={`relative flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                currentView === 'motoboy'
+                  ? 'bg-amber-500 text-slate-950 shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <Bike className="w-3.5 h-3.5" />
+              <span>Motoboy</span>
+              {motoboyCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 text-[10px] font-black bg-emerald-500 text-slate-950 rounded-full animate-pulse">
+                  {motoboyCount}
+                </span>
+              )}
+            </button>
+
             {/* View: Painel do Gestor */}
             <button
               onClick={() => setCurrentView('admin')}
-              className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
                 currentView === 'admin'
                   ? 'bg-amber-500 text-slate-950 shadow-md'
                   : 'text-slate-400 hover:text-white hover:bg-slate-900'
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Painel Gestor</span>
+              <span className="hidden sm:inline">Admin</span>
             </button>
           </nav>
 

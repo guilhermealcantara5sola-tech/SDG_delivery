@@ -102,6 +102,7 @@ const getViewFromUrl = () => {
   const query = new URLSearchParams(window.location.search).get('view');
   
   const target = (query || hash || path).toLowerCase();
+  if (target.includes('motoboy') || target.includes('entrega') || target.includes('driver') || target.includes('courier')) return 'motoboy';
   if (target.includes('balcao') || target.includes('caixa') || target.includes('counter') || target.includes('gestor')) return 'counter';
   if (target.includes('cozinha') || target.includes('kds') || target.includes('kitchen')) return 'kitchen';
   if (target.includes('admin') || target.includes('painel') || target.includes('links')) return 'admin';
@@ -264,7 +265,8 @@ export const OrderProvider = ({ children }) => {
     setCurrentViewState(view);
     if (typeof window !== 'undefined') {
       let newPath = '/';
-      if (view === 'counter') newPath = '/balcao';
+      if (view === 'motoboy') newPath = '/motoboy';
+      else if (view === 'counter') newPath = '/balcao';
       else if (view === 'kitchen') newPath = '/cozinha';
       else if (view === 'admin') newPath = '/admin';
       

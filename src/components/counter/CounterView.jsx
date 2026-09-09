@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency, formatTime, formatDateTime, STATUS_MAP, PAYMENT_METHODS } from '../../utils/formatters';
-import { Printer, CheckCircle2, AlertCircle, Clock, Search, Filter, Phone, MapPin, DollarSign, ChefHat, RefreshCw, Edit3 } from 'lucide-react';
+import { Printer, CheckCircle2, AlertCircle, Clock, Search, Filter, Phone, MapPin, DollarSign, ChefHat, RefreshCw, Edit3, Bike } from 'lucide-react';
 import { OrderEditModal } from '../common/OrderEditModal';
 
 export const CounterView = () => {
-  const { orders, updateOrderStatus, triggerPrintTicket, editOrder } = useOrder();
+  const { orders, updateOrderStatus, triggerPrintTicket, editOrder, setCurrentView } = useOrder();
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingOrder, setEditingOrder] = useState(null);
@@ -103,6 +103,15 @@ export const CounterView = () => {
                 {formatCurrency(orders.reduce((acc, o) => acc + o.total, 0))}
               </div>
             </div>
+
+            <button
+              onClick={() => setCurrentView('motoboy')}
+              className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500 hover:text-slate-950 font-bold text-xs transition-all shadow-md"
+              title="Abrir a tela de entregas dos motoboys"
+            >
+              <Bike className="w-4 h-4" />
+              <span>Painel Motoboy</span>
+            </button>
           </div>
         </div>
 
@@ -262,6 +271,7 @@ export const CounterView = () => {
                 <option value="pagamento_confirmado">Pagamento Confirmado (Cozinha)</option>
                 <option value="em_preparo">Em Preparo</option>
                 <option value="pronto">Pronto</option>
+                <option value="saiu_para_entrega">Em Rota (Com Motoboy)</option>
                 <option value="entregue">Concluído</option>
               </select>
             </div>
