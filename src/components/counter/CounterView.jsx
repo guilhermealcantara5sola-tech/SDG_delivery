@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency, formatTime, formatDateTime, STATUS_MAP, PAYMENT_METHODS } from '../../utils/formatters';
-import { Printer, CheckCircle2, AlertCircle, Clock, Search, Filter, Phone, MapPin, DollarSign, ChefHat, RefreshCw } from 'lucide-react';
+import { Printer, CheckCircle2, AlertCircle, Clock, Search, Filter, Phone, MapPin, DollarSign, ChefHat, RefreshCw, Edit3 } from 'lucide-react';
+import { OrderEditModal } from '../common/OrderEditModal';
 
 export const CounterView = () => {
-  const { orders, updateOrderStatus, triggerPrintTicket } = useOrder();
+  const { orders, updateOrderStatus, triggerPrintTicket, editOrder } = useOrder();
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingOrder, setEditingOrder] = useState(null);
 
   // Pending payments (waiting counter confirmation)
   const pendingOrders = orders.filter(o => o.status === 'aguardando_pagamento');
@@ -212,6 +214,16 @@ export const CounterView = () => {
                           <span>Ficha Cozinha</span>
                         </button>
                       </div>
+
+                      {/* Edit Order button */}
+                      <button
+                        onClick={() => setEditingOrder(order)}
+                        className="w-full py-2 px-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 text-amber-300 font-bold text-xs transition-all flex items-center justify-center space-x-1.5"
+                        title="Adicionar ou editar itens, endereço e dados deste pedido"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Editar Itens / Pedido</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -313,7 +325,16 @@ export const CounterView = () => {
                             {formatCurrency(order.total)}
                           </td>
 
-                          <td className="p-4 text-center space-x-1.5">
+                          <td className="p-4 text-center space-x-1.5 whitespace-nowrap">
+                            {/* Edit Order */}
+                            <button
+                              onClick={() => setEditingOrder(order)}
+                              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 transition-all inline-flex items-center"
+                              title="Editar Itens ou Dados do Pedido"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+
                             {/* Print Ticket */}
                             <button
                               onClick={() => triggerPrintTicket(order, 'counter')}
@@ -326,7 +347,7 @@ export const CounterView = () => {
                             {/* Print Kitchen Ticket */}
                             <button
                               onClick={() => triggerPrintTicket(order, 'kitchen')}
-                              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 transition-all inline-flex items-center"
+                              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 transition-all inline-flex items-center"
                               title="Imprimir Ficha Cozinha"
                             >
                               <ChefHat className="w-3.5 h-3.5" />
@@ -343,6 +364,17 @@ export const CounterView = () => {
         </div>
 
       </div>
+
+      {/* Modal de Edição de Pedido */}
+      {editingOrder && (
+        <OrderEditModal
+          isOpen={Boolean(editingOrder)}
+          order={editingOrder}
+          onClose={() => setEditingOrder(null)}
+          onSave={editOrder}
+          onPrint={triggerPrintTicket}
+        />
+      )}
     </div>
   );
 };

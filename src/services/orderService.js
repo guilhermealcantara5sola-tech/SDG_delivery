@@ -137,6 +137,46 @@ export const updateOrderStatusInDb = async (orderId, newStatus) => {
 };
 
 /**
+ * Atualiza todas as informações do pedido no Supabase (itens, cliente, endereço, total, observações, etc.)
+ */
+export const updateOrderInDb = async (orderId, updatedOrder) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { data: null, error: new Error('Supabase não configurado') };
+
+  try {
+    const updatePayload = {
+      customer_name: updatedOrder.customerName,
+      customer_phone: updatedOrder.customerPhone,
+      delivery_type: updatedOrder.deliveryType,
+      address: updatedOrder.address || '',
+      payment_method: updatedOrder.paymentMethod,
+      status: updatedOrder.status,
+      total: Number(updatedOrder.total) || 0,
+      observation: updatedOrder.observation || '',
+      items: updatedOrder.items || [],
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('orders')
+      .update(updatePayload)
+      .eq('id', orderId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      data: mapRowToOrder(data),
+      error: null
+    };
+  } catch (error) {
+    console.error(`Erro ao atualizar pedido ${orderId} no Supabase:`, error);
+    return { data: null, error };
+  }
+};
+
+/**
  * Seeds demo initial orders into Supabase if desired.
  */
 export const seedOrdersInDb = async (ordersList) => {
@@ -221,7 +261,53 @@ export const fetchCustomersFromDb = async () => {
 };
 
 /**
- * Fetches products list from Supabase.
+ * Mapeia linha do banco de dados (tabela products) para formato do cardápio do frontend.
+ */
+export const mapRowToProduct = (row) => {
+  if (!row) return null;
+  let parsedOptions = [];
+  if (Array.isArray(row.options)) {
+    parsedOptions = row.options;
+  } else if (typeof row.options === 'string') {
+    try {
+      parsedOptions = JSON.parse(row.options);
+    } catch (e) {
+      parsedOptions = [];
+    }
+  }
+
+  return {
+    id: row.id,
+    categoryId: row.category_id,
+    name: row.name,
+    description: row.description || '',
+    price: Number(row.price) || 0,
+    image: row.image || '',
+    badge: row.badge || '',
+    isActive: row.is_active !== false,
+    options: parsedOptions
+  };
+};
+
+/**
+ * Mapeia objeto de produto do frontend para linha do Postgres (tabela products).
+ */
+export const mapProductToRow = (product) => {
+  return {
+    id: product.id,
+    category_id: product.categoryId,
+    name: product.name,
+    description: product.description || '',
+    price: Number(product.price) || 0,
+    image: product.image || '',
+    badge: product.badge || '',
+    is_active: product.isActive !== false,
+    options: product.options || []
+  };
+};
+
+/**
+ * Busca todos os produtos do cardápio no Supabase.
  */
 export const fetchProductsFromDb = async () => {
   const supabase = getSupabaseClient();
@@ -234,10 +320,75 @@ export const fetchProductsFromDb = async () => {
       .order('name', { ascending: true });
 
     if (error) throw error;
-    return { data: data || [], error: null };
+    return { data: (data || []).map(mapRowToProduct), error: null };
   } catch (error) {
     console.error('Erro ao buscar produtos no Supabase:', error);
     return { data: [], error };
+  }
+};
+
+/**
+ * Cadastra ou atualiza um produto no Supabase (Admin).
+ */
+export const saveProductInDb = async (product) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { data: product, error: null };
+
+  try {
+    const row = mapProductToRow(product);
+    const { data, error } = await supabase
+      .from('products')
+      .upsert([row], { onConflict: 'id' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data: mapRowToProduct(data), error: null };
+  } catch (error) {
+    console.error('Erro ao salvar produto no Supabase:', error);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Exclui um produto do cardápio no Supabase.
+ */
+export const deleteProductInDb = async (productId) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { success: true, error: null };
+
+  try {
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', productId);
+
+    if (error) throw error;
+    return { success: true, error: null };
+  } catch (error) {
+    console.error(`Erro ao excluir produto ${productId} no Supabase:`, error);
+    return { success: false, error };
+  }
+};
+
+/**
+ * Alterna disponibilidade (ativo/pausado) do produto no Supabase.
+ */
+export const toggleProductActiveInDb = async (productId, isActive) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { success: true, error: null };
+
+  try {
+    const { error } = await supabase
+      .from('products')
+      .update({ is_active: isActive })
+      .eq('id', productId);
+
+    if (error) throw error;
+    return { success: true, error: null };
+  } catch (error) {
+    console.error(`Erro ao alterar disponibilidade do produto ${productId}:`, error);
+    return { success: false, error };
   }
 };
 
@@ -343,6 +494,64 @@ export const fetchCustomerOrdersFromDb = async (phone) => {
   } catch (error) {
     console.error('Erro ao buscar histórico do cliente:', error);
     return { data: [], error };
+  }
+};
+
+/**
+ * Atualiza cadastro de cliente no Supabase (Admin).
+ */
+export const updateCustomerInDb = async (customerId, { name, phone, address, total_orders, pin }) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { data: null, error: null };
+
+  try {
+    const payload = {
+      name: name?.trim(),
+      phone: phone?.trim(),
+      address: address?.trim() || '',
+      updated_at: new Date().toISOString()
+    };
+
+    if (total_orders !== undefined) {
+      payload.total_orders = Number(total_orders);
+    }
+    if (pin && pin.trim()) {
+      payload.neighborhood = `PIN:${pin.trim()}`;
+    }
+
+    const { data, error } = await supabase
+      .from('customers')
+      .update(payload)
+      .eq('id', customerId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error(`Erro ao atualizar cliente ${customerId} no Supabase:`, error);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Exclui cadastro de cliente do Supabase.
+ */
+export const deleteCustomerInDb = async (customerId) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { success: true, error: null };
+
+  try {
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .eq('id', customerId);
+
+    if (error) throw error;
+    return { success: true, error: null };
+  } catch (error) {
+    console.error(`Erro ao excluir cliente ${customerId}:`, error);
+    return { success: false, error };
   }
 };
 

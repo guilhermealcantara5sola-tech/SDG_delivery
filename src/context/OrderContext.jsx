@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { INITIAL_ORDERS } from '../data/mockData';
+import { INITIAL_ORDERS, PRODUCTS, CATEGORIES } from '../data/mockData';
 import {
   isSupabaseConfigured,
   getSupabaseConfig
@@ -8,16 +8,23 @@ import {
   fetchOrdersFromDb,
   insertOrderInDb,
   updateOrderStatusInDb,
+  updateOrderInDb,
   subscribeToOrdersRealtime,
   saveCustomerProfile,
   loginCustomerByPin,
-  fetchCustomerOrdersFromDb
+  fetchCustomerOrdersFromDb,
+  fetchProductsFromDb,
+  saveProductInDb,
+  deleteProductInDb,
+  toggleProductActiveInDb,
+  updateCustomerInDb
 } from '../services/orderService';
 
 const OrderContext = createContext();
 
 const BROADCAST_CHANNEL_NAME = 'sdg_delivery_sync_channel';
 const LOCAL_STORAGE_KEY = 'sdg_delivery_orders_v1';
+const PRODUCTS_STORAGE_KEY = 'sdg_delivery_products_v1';
 
 // Web Audio API ding-dong notification sound generator (Anota AI style)
 const playAlertSound = (type = 'new_order') => {
@@ -81,6 +88,16 @@ export const OrderProvider = ({ children }) => {
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
     return INITIAL_ORDERS;
+  });
+
+  const [products, setProducts] = useState(() => {
+    try {
+      const saved = localStorage.getItem(PRODUCTS_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return PRODUCTS;
   });
 
   const [cart, setCart] = useState([]);
@@ -252,9 +269,24 @@ export const OrderProvider = ({ children }) => {
     }
   }, []);
 
+  // Fetch products from Supabase
+  const loadProductsFromSupabase = useCallback(async () => {
+    if (!isSupabaseConfigured()) return;
+    try {
+      const { data, error } = await fetchProductsFromDb();
+      if (!error && data && data.length > 0) {
+        setProducts(data);
+        localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(data));
+      }
+    } catch (err) {
+      console.warn('Erro ao sincronizar produtos do Supabase:', err);
+    }
+  }, []);
+
   useEffect(() => {
     loadOrdersFromSupabase();
-  }, [loadOrdersFromSupabase, dbVersion]);
+    loadProductsFromSupabase();
+  }, [loadOrdersFromSupabase, loadProductsFromSupabase, dbVersion]);
 
   // Subscribe to Supabase Realtime changes
   useEffect(() => {
@@ -414,6 +446,93 @@ export const OrderProvider = ({ children }) => {
     }
   };
 
+  // Editar Pedido completo (Balcão ou Admin: itens, cliente, pagamento, observações, etc.)
+  const editOrder = (updatedOrder) => {
+    // Recalcular totais com base nos itens
+    const itemsTotal = (updatedOrder.items || []).reduce((acc, item) => {
+      const unitPrice = Number(item.unitPriceWithExtras || item.price) || 0;
+      const qty = Number(item.quantity) || 1;
+      const itemSubtotal = item.subtotal !== undefined ? Number(item.subtotal) : unitPrice * qty;
+      return acc + itemSubtotal;
+    }, 0);
+
+    const deliveryFee = updatedOrder.deliveryType === 'delivery' ? 7.00 : 0;
+    const recalculatedTotal = itemsTotal + deliveryFee;
+
+    const orderToSave = {
+      ...updatedOrder,
+      total: recalculatedTotal,
+      updatedAt: new Date().toISOString()
+    };
+
+    const updatedOrders = orders.map(o => o.id === orderToSave.id ? orderToSave : o);
+    saveAndSyncOrders(updatedOrders);
+    playAlertSound('confirm');
+
+    if (isSupabaseConfigured()) {
+      updateOrderInDb(orderToSave.id, orderToSave).catch(err => {
+        console.warn('Aviso: Erro ao persistir edição do pedido no Supabase:', err);
+      });
+    }
+
+    return orderToSave;
+  };
+
+  // Gerenciamento de Produtos do Cardápio (Admin)
+  const saveProduct = async (productData) => {
+    const newProduct = {
+      ...productData,
+      id: productData.id || `p_${Date.now()}`
+    };
+
+    setProducts(prev => {
+      const exists = prev.some(p => p.id === newProduct.id);
+      const updated = exists
+        ? prev.map(p => p.id === newProduct.id ? newProduct : p)
+        : [newProduct, ...prev];
+      localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+
+    if (isSupabaseConfigured()) {
+      saveProductInDb(newProduct).catch(console.error);
+    }
+    playAlertSound('confirm');
+    return newProduct;
+  };
+
+  const deleteProduct = async (productId) => {
+    setProducts(prev => {
+      const updated = prev.filter(p => p.id !== productId);
+      localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+
+    if (isSupabaseConfigured()) {
+      deleteProductInDb(productId).catch(console.error);
+    }
+    return true;
+  };
+
+  const toggleProductActive = async (productId) => {
+    let nextActive = true;
+    setProducts(prev => {
+      const updated = prev.map(p => {
+        if (p.id === productId) {
+          nextActive = p.isActive === false ? true : false;
+          return { ...p, isActive: nextActive };
+        }
+        return p;
+      });
+      localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+
+    if (isSupabaseConfigured()) {
+      toggleProductActiveInDb(productId, nextActive).catch(console.error);
+    }
+  };
+
   // Reconnect / force refresh helper
   const reconnectDb = () => {
     setDbVersion(v => v + 1);
@@ -441,6 +560,7 @@ export const OrderProvider = ({ children }) => {
       clearCart,
       createOrder,
       updateOrderStatus,
+      editOrder,
       printTicket,
       triggerPrintTicket,
       closePrintTicket,
@@ -449,6 +569,13 @@ export const OrderProvider = ({ children }) => {
       isDbConnected: dbStatus === 'connected',
       reconnectDb,
       refreshOrders: loadOrdersFromSupabase,
+      // Products (Cardápio dinâmico)
+      products,
+      categories: CATEGORIES,
+      saveProduct,
+      deleteProduct,
+      toggleProductActive,
+      refreshProducts: loadProductsFromSupabase,
       // Customer & Loyalty features
       customer,
       loginCustomer,

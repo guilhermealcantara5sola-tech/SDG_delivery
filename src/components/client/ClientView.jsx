@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { PRODUCTS, CATEGORIES } from '../../data/mockData';
 import { HeaderBanner } from './HeaderBanner';
 import { CategoryNav } from './CategoryNav';
 import { ProductCard } from './ProductCard';
@@ -12,7 +11,7 @@ import { ShoppingBag, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
 export const ClientView = () => {
-  const { cart, setCurrentView } = useOrder();
+  const { cart, setCurrentView, products, categories } = useOrder();
   const [activeCategory, setActiveCategory] = useState('todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -20,8 +19,10 @@ export const ClientView = () => {
   const [isCustomerAuthOpen, setIsCustomerAuthOpen] = useState(false);
   const [activeOrderTrack, setActiveOrderTrack] = useState(null);
 
-  // Filter products by category and search term
-  const filteredProducts = PRODUCTS.filter(prod => {
+  // Filter products by active status, category and search term
+  const activeProducts = (products || []).filter(p => p.isActive !== false);
+
+  const filteredProducts = activeProducts.filter(prod => {
     const matchesCategory = activeCategory === 'todos' || prod.categoryId === activeCategory;
     const matchesSearch = prod.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           prod.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -31,7 +32,7 @@ export const ClientView = () => {
   const totalCartQty = cart.reduce((acc, i) => acc + i.quantity, 0);
   const totalCartValue = cart.reduce((acc, i) => acc + i.subtotal, 0);
 
-  const realCategories = CATEGORIES.filter(c => c.id !== 'todos');
+  const realCategories = (categories || []).filter(c => c.id !== 'todos');
 
   return (
     <div className="min-h-screen pb-28">
