@@ -492,8 +492,9 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
           )}
 
         </div>
+      )}
 
-        {/* Drawer Footer (visível quando não está na etapa do PIX) */}
+      {/* Drawer Footer (visível quando não está na etapa do PIX) */}
         {!isPixPaymentStep && cart.length > 0 && (
           <div className="p-5 bg-slate-950 border-t border-slate-800 space-y-4">
             
