@@ -3,13 +3,14 @@ import {
   Palette, Image, Sparkles, Check, Clock, DollarSign,
   Phone, MapPin, Store, AlertTriangle, Eye, Upload, CheckCircle2,
   Utensils, ExternalLink, MessageCircle, Sliders, Smartphone, Star,
-  Loader2
+  Loader2, QrCode, Copy, ShieldCheck, Building2, User, Mail, Key
 } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency } from '../../utils/formatters';
 import { THEME_PRESETS, isHexColorLight, formatWhatsAppLink, formatInstagramInfo } from '../../utils/theme';
 import { WhatsAppIcon, InstagramIcon } from '../common/BrandIcons';
 import { uploadMediaToSupabase } from '../../services/storageService';
+import { PixPaymentCard } from '../common/PixPaymentCard';
 
 const PRESET_COVERS = [
   {
@@ -71,13 +72,20 @@ export const StoreCustomizationAdmin = () => {
     showFloatingWhatsApp: storeSettings?.showFloatingWhatsApp !== false,
     instagram: storeSettings?.instagram || '@sdgdelivery',
     address: storeSettings?.address || 'Rua Principal do Delivery, 500 - Centro',
-    openingHours: storeSettings?.openingHours || 'Terça a Domingo: 18:00 às 23:30'
+    openingHours: storeSettings?.openingHours || 'Terça a Domingo: 18:00 às 23:30',
+    // Configurações PIX Oficiais
+    pixKey: storeSettings?.pixKey || '(11) 99999-8888',
+    pixKeyType: storeSettings?.pixKeyType || 'phone',
+    pixBeneficiaryName: storeSettings?.pixBeneficiaryName || storeSettings?.restaurantName || 'SDG Burger & Pizza',
+    pixCity: storeSettings?.pixCity || 'Sao Paulo',
+    pixEnabled: storeSettings?.pixEnabled !== false
   });
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadStatusMsg, setUploadStatusMsg] = useState('');
+  const [testPixAmount, setTestPixAmount] = useState('34.90');
 
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -563,11 +571,170 @@ export const StoreCustomizationAdmin = () => {
             </div>
           </div>
 
-          {/* GRUPO 4: FAIXA DE AVISO / PROMOÇÃO NO TOPO */}
+          {/* GRUPO 4: PAGAMENTO PIX OFICIAL & QR CODE AUTOMÁTICO */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center space-x-2">
+                <QrCode className="w-4 h-4 text-emerald-400" />
+                <span>4. Chave PIX do Restaurante & QR Code Automático</span>
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-extrabold uppercase">
+                Padrão Banco Central
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Cadastre aqui a chave PIX da sua empresa. Quando o cliente fechar o pedido no cardápio, o sistema irá gerar o <strong>QR Code oficial e o código Pix Copia e Cola</strong> com o <strong>valor exato do pedido</strong> para ele pagar na hora.
+            </p>
+
+            {/* Ativar / Desativar PIX */}
+            <label className="flex items-center space-x-3 bg-slate-950 p-3.5 rounded-2xl border border-slate-800 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={formData.pixEnabled}
+                onChange={e => setFormData({ ...formData, pixEnabled: e.target.checked })}
+                className="w-4 h-4 rounded text-emerald-500 bg-slate-900 border-slate-700 cursor-pointer accent-emerald-500"
+              />
+              <div className="text-xs">
+                <span className="font-extrabold text-white block">Habilitar Opção de Pagamento por PIX no Cardápio</span>
+                <span className="text-slate-400 text-[11px]">Gera o QR Code e código Copia e Cola antes do cliente fechar o pedido</span>
+              </div>
+            </label>
+
+            {formData.pixEnabled && (
+              <div className="space-y-4 pt-1 animate-in fade-in">
+                
+                {/* Tipo de Chave e Chave Pix */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                  <div className="sm:col-span-4">
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Tipo de Chave *
+                    </label>
+                    <select
+                      value={formData.pixKeyType}
+                      onChange={e => setFormData({ ...formData, pixKeyType: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-emerald-500 outline-none font-bold cursor-pointer"
+                    >
+                      <option value="phone">📱 Telefone Celular (+55)</option>
+                      <option value="cnpj">🏢 CNPJ</option>
+                      <option value="cpf">👤 CPF</option>
+                      <option value="email">✉️ E-mail</option>
+                      <option value="random">🔑 Chave Aleatória (EVP)</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-8">
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Chave PIX Cadastrada *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.pixKey}
+                      onChange={e => setFormData({ ...formData, pixKey: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-emerald-400 focus:border-emerald-500 outline-none font-mono font-bold"
+                      placeholder={
+                        formData.pixKeyType === 'phone' ? 'Ex: (11) 99999-8888 ou 11999998888' :
+                        formData.pixKeyType === 'cnpj' ? 'Ex: 12.345.678/0001-90' :
+                        formData.pixKeyType === 'cpf' ? 'Ex: 123.456.789-00' :
+                        formData.pixKeyType === 'email' ? 'Ex: financeiro@seurestaurante.com.br' :
+                        'Ex: 123e4567-e89b-12d3-a456-426614174000'
+                      }
+                    />
+                    <span className="text-[10px] text-slate-500 mt-1 block">
+                      {formData.pixKeyType === 'phone' && 'Pode digitar com DDD e parênteses. O código do país (+55) é adicionado automaticamente.'}
+                      {formData.pixKeyType === 'cnpj' && 'Digite o CNPJ da empresa titular da conta bancária.'}
+                      {formData.pixKeyType === 'cpf' && 'Digite o CPF do titular da conta.'}
+                      {formData.pixKeyType === 'email' && 'Digite o e-mail cadastrado como chave Pix no seu banco.'}
+                      {formData.pixKeyType === 'random' && 'Cole a chave aleatória gerada pelo aplicativo do seu banco.'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Titular e Cidade */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Nome do Titular / Razão Social *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={25}
+                      value={formData.pixBeneficiaryName}
+                      onChange={e => setFormData({ ...formData, pixBeneficiaryName: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-emerald-500 outline-none font-bold"
+                      placeholder="Ex: SDG Burger & Pizza"
+                    />
+                    <span className="text-[10px] text-slate-500">Nome que aparece no comprovante Pix (máx. 25 letras)</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Cidade da Conta Bancária *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={15}
+                      value={formData.pixCity}
+                      onChange={e => setFormData({ ...formData, pixCity: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-emerald-500 outline-none font-bold"
+                      placeholder="Ex: Sao Paulo, Rio de Janeiro..."
+                    />
+                    <span className="text-[10px] text-slate-500">Exigido pelo Banco Central no BRCode (máx. 15 letras)</span>
+                  </div>
+                </div>
+
+                {/* Simulador Interativo do QR Code PIX */}
+                <div className="pt-2">
+                  <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center space-x-2">
+                        <Sparkles className="w-4 h-4 text-amber-400" />
+                        <span className="text-xs font-extrabold text-white">Simulador em Tempo Real do PIX:</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[11px] text-slate-400">Valor de Teste (R$):</span>
+                        <input
+                          type="number"
+                          step="0.10"
+                          value={testPixAmount}
+                          onChange={e => setTestPixAmount(e.target.value)}
+                          className="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-emerald-400 font-mono font-bold text-right outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-slate-400">
+                      Veja abaixo como o QR Code e o código Copia e Cola serão exibidos para o cliente com este valor:
+                    </p>
+
+                    <PixPaymentCard
+                      amount={parseFloat(testPixAmount) || 34.90}
+                      orderId="TESTE-1001"
+                      storeSettings={{
+                        ...formData,
+                        pixKey: formData.pixKey,
+                        pixKeyType: formData.pixKeyType,
+                        pixBeneficiaryName: formData.pixBeneficiaryName,
+                        pixCity: formData.pixCity
+                      }}
+                      compact={true}
+                      showActionButtons={false}
+                    />
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </div>
+
+          {/* GRUPO 5: FAIXA DE AVISO / PROMOÇÃO NO TOPO */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
             <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center space-x-2 pb-2 border-b border-slate-800">
               <Sparkles className="w-4 h-4 text-[var(--brand-primary,#f59e0b)]" />
-              <span>4. Faixa de Anúncio / Promoção no Topo</span>
+              <span>5. Faixa de Anúncio / Promoção no Topo</span>
             </h3>
 
             <label className="flex items-center space-x-3 bg-slate-950 p-3 rounded-2xl border border-slate-800 cursor-pointer select-none">
@@ -597,11 +764,11 @@ export const StoreCustomizationAdmin = () => {
             )}
           </div>
 
-          {/* GRUPO 5: STATUS DA LOJA & REGRAS DE ENTREGA */}
+          {/* GRUPO 6: STATUS DA LOJA & REGRAS DE ENTREGA */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
             <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center space-x-2 pb-2 border-b border-slate-800">
               <Clock className="w-4 h-4 text-emerald-400" />
-              <span>5. Status da Loja & Regras de Entrega</span>
+              <span>6. Status da Loja & Regras de Entrega</span>
             </h3>
 
             {/* Aberto ou Fechado */}
@@ -805,6 +972,12 @@ export const StoreCustomizationAdmin = () => {
                   <div className="bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
                     🛵 {formData.deliveryFee ? `R$ ${formData.deliveryFee}` : 'Grátis'}
                   </div>
+                  {formData.pixEnabled && formData.pixKey && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 rounded-lg text-emerald-400 text-[10px] font-extrabold flex items-center space-x-1">
+                      <QrCode className="w-3 h-3" />
+                      <span>Aceita PIX</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Exemplo de Botão no Mockup com a cor escolhida */}

@@ -60,7 +60,13 @@ export const DEFAULT_STORE_SETTINGS = {
   showFloatingWhatsApp: true,
   instagram: '@sdgdelivery',
   address: 'Rua Principal do Delivery, 500 - Centro',
-  openingHours: 'Terça a Domingo: 18:00 às 23:30'
+  openingHours: 'Terça a Domingo: 18:00 às 23:30',
+  // Configuração Oficial de Pagamento PIX (Banco Central / BRCode)
+  pixKey: '(11) 99999-8888',
+  pixKeyType: 'phone', // 'phone' | 'cpf' | 'cnpj' | 'email' | 'random'
+  pixBeneficiaryName: 'SDG Burger & Pizza',
+  pixCity: 'Sao Paulo',
+  pixEnabled: true
 };
 
 // Web Audio API ding-dong notification sound generator (Anota AI style)

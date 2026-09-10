@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { X, Trash2, Plus, Minus, Send, QrCode, CreditCard, Banknote, MapPin, Phone, User, ShoppingBag, ArrowRight, Award, Gift } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Trash2, Plus, Minus, Send, QrCode, CreditCard, Banknote, MapPin, Phone, User, ShoppingBag, ArrowRight, ArrowLeft, Award, Gift } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency } from '../../utils/formatters';
 import { WhatsAppIcon } from '../common/BrandIcons';
 import { isHexColorLight } from '../../utils/theme';
+import { PixPaymentCard } from '../common/PixPaymentCard';
 import confetti from 'canvas-confetti';
 
 export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth }) => {
@@ -17,6 +18,7 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
   const [changeFor, setChangeFor] = useState('');
   const [observation, setObservation] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isPixPaymentStep, setIsPixPaymentStep] = useState(false);
 
   const primaryColor = storeSettings?.primaryColor || '#f59e0b';
   const secondaryColor = storeSettings?.secondaryColor || '#ea580c';
@@ -24,13 +26,20 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
   const contrastText = isLight ? '#0f172a' : '#ffffff';
 
   // Preenche automaticamente com os dados salvos do cliente
-  React.useEffect(() => {
+  useEffect(() => {
     if (customer) {
       if (customer.name) setName(customer.name);
       if (customer.phone) setPhone(customer.phone);
       if (customer.address) setAddress(customer.address);
     }
   }, [customer, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsPixPaymentStep(false);
+      setErrorMsg('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -40,7 +49,7 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
   const deliveryFee = deliveryType === 'delivery' ? (isFreeDelivery ? 0 : standardFee) : 0;
   const total = subtotal + deliveryFee;
 
-  const handleCheckout = (sendToWhatsapp = false) => {
+  const handleProceedToPayment = (sendToWhatsapp = false) => {
     if (!name.trim()) {
       setErrorMsg('Por favor, informe o seu Nome.');
       return;
@@ -53,12 +62,40 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
       setErrorMsg('Por favor, informe o Endereço de Entrega.');
       return;
     }
+    setErrorMsg('');
+
+    // Se escolheu PIX e ainda não está visualizando o QR Code/Copia e Cola, abre a etapa do PIX
+    if (paymentMethod === 'pix' && !isPixPaymentStep) {
+      setIsPixPaymentStep(true);
+      return;
+    }
+
+    handleCheckout(sendToWhatsapp);
+  };
+
+  const handleCheckout = (sendToWhatsapp = false) => {
+    if (!name.trim()) {
+      setErrorMsg('Por favor, informe o seu Nome.');
+      setIsPixPaymentStep(false);
+      return;
+    }
+    if (!phone.trim()) {
+      setErrorMsg('Por favor, informe o seu Telefone / WhatsApp.');
+      setIsPixPaymentStep(false);
+      return;
+    }
+    if (deliveryType === 'delivery' && !address.trim()) {
+      setErrorMsg('Por favor, informe o Endereço de Entrega.');
+      setIsPixPaymentStep(false);
+      return;
+    }
 
     setErrorMsg('');
 
     const fullObservation = [
       observation,
-      paymentMethod === 'cash' && changeFor ? `Troco para: ${changeFor}` : ''
+      paymentMethod === 'cash' && changeFor ? `Troco para: ${changeFor}` : '',
+      paymentMethod === 'pix' ? 'Pagamento antecipado via PIX gerado no app' : ''
     ].filter(Boolean).join(' | ');
 
     // Create Order in state/Sync
@@ -89,6 +126,9 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
       msg += `*Tipo:* ${deliveryType === 'delivery' ? 'Delivery (Entrega)' : 'Retirada no Balcão'}\n`;
       if (deliveryType === 'delivery') msg += `*Endereço:* ${address}\n`;
       msg += `*Forma de Pagamento:* ${paymentMethod.toUpperCase()}\n`;
+      if (paymentMethod === 'pix') {
+        msg += `*Status:* PAGO VIA PIX (QR Code no app)\n`;
+      }
       msg += `--------------------------\n`;
       msg += `*ITENS:* \n`;
       cart.forEach(item => {
@@ -100,6 +140,9 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
       msg += `--------------------------\n`;
       msg += `*Total:* ${formatCurrency(total)}\n`;
       if (observation) msg += `*Obs:* ${observation}\n`;
+      if (paymentMethod === 'pix') {
+        msg += `\n_Estou enviando o comprovante do PIX a seguir!_\n`;
+      }
 
       const encoded = encodeURIComponent(msg);
       const targetDigits = String(storeSettings?.whatsapp || storeSettings?.phoneSupport || '').replace(/\D/g, '');
@@ -108,6 +151,7 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
       window.open(waUrl, '_blank');
     }
 
+    setIsPixPaymentStep(false);
     onClose();
     onOrderPlaced(newOrder);
   };
@@ -117,21 +161,74 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
       <div className="relative w-full max-w-md bg-slate-900 border-l border-slate-800 h-full flex flex-col justify-between shadow-2xl animate-in slide-in-from-right duration-300">
         
         {/* Drawer Header */}
-        <div className="p-5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center space-x-2.5">
-            <ShoppingBag className="w-5 h-5" style={{ color: primaryColor }} />
-            <h2 className="text-lg font-extrabold text-white">Seu Pedido</h2>
+        {isPixPaymentStep ? (
+          <div className="p-5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => setIsPixPaymentStep(false)}
+                className="w-8 h-8 rounded-full bg-slate-900 text-slate-300 hover:text-white flex items-center justify-center border border-slate-800 hover:border-slate-700"
+                title="Voltar aos dados do pedido"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <div>
+                <h2 className="text-base font-extrabold text-white flex items-center space-x-1.5">
+                  <QrCode className="w-4 h-4 text-emerald-400" />
+                  <span>Pagar com PIX</span>
+                </h2>
+                <p className="text-[10px] text-slate-400">Pague antes de fechar o pedido</p>
+              </div>
+            </div>
+            <button
+              onClick={() => { setIsPixPaymentStep(false); onClose(); }}
+              className="w-8 h-8 rounded-full bg-slate-900 text-slate-400 hover:text-white flex items-center justify-center border border-slate-800"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-900 text-slate-400 hover:text-white flex items-center justify-center border border-slate-800"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        ) : (
+          <div className="p-5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <ShoppingBag className="w-5 h-5" style={{ color: primaryColor }} />
+              <h2 className="text-lg font-extrabold text-white">Seu Pedido</h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-slate-900 text-slate-400 hover:text-white flex items-center justify-center border border-slate-800"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Drawer Body */}
-        <div className="p-5 flex-1 overflow-y-auto space-y-6">
+        {isPixPaymentStep ? (
+          <div className="p-5 flex-1 overflow-y-auto space-y-4">
+            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 text-xs space-y-1">
+              <div className="flex justify-between font-bold text-white">
+                <span>Cliente: {name}</span>
+                <span className="text-amber-400 font-mono text-[11px]">{phone}</span>
+              </div>
+              <div className="text-slate-400 text-[11px]">
+                {deliveryType === 'delivery' ? `Entrega em: ${address}` : 'Retirada no Balcão'}
+              </div>
+              <div className="text-[10px] text-slate-500 line-clamp-1 pt-1 border-t border-slate-900">
+                Itens ({cart.length}): {cart.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+              </div>
+            </div>
+
+            <PixPaymentCard
+              amount={total}
+              orderId=""
+              storeSettings={storeSettings}
+              onPaymentConfirmed={() => handleCheckout(false)}
+              onSendWhatsapp={() => handleCheckout(true)}
+              showActionButtons={true}
+            />
+          </div>
+        ) : (
+          <div className="p-5 flex-1 overflow-y-auto space-y-6">
           
           {/* Cart Items List */}
           {cart.length === 0 ? (
@@ -359,9 +456,23 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
                 )}
 
                 {paymentMethod === 'pix' && (
-                  <p className="text-[11px] text-amber-400 font-semibold pt-1">
-                    ⚡ Chave PIX e QR Code para pagamento instantâneo serão gerados.
-                  </p>
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3.5 text-xs space-y-1.5 animate-in fade-in">
+                    <div className="flex items-center space-x-1.5 text-emerald-400 font-bold">
+                      <QrCode className="w-4 h-4" />
+                      <span>Pagamento Antecipado via PIX ({formatCurrency(total)})</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      O QR Code oficial e o código Pix Copia e Cola no valor de <strong>{formatCurrency(total)}</strong> serão gerados com a chave cadastrada da loja para você pagar antes de fechar o pedido.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleProceedToPayment(false)}
+                      className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline pt-0.5 inline-flex items-center space-x-1"
+                    >
+                      <span>Ver QR Code e Chave Pix agora</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
                 )}
 
                 {paymentMethod === 'credit_card' && (
@@ -382,8 +493,8 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
 
         </div>
 
-        {/* Drawer Footer */}
-        {cart.length > 0 && (
+        {/* Drawer Footer (visível quando não está na etapa do PIX) */}
+        {!isPixPaymentStep && cart.length > 0 && (
           <div className="p-5 bg-slate-950 border-t border-slate-800 space-y-4">
             
             {/* Totals Breakdown */}
@@ -407,23 +518,32 @@ export const CartDrawer = ({ isOpen, onClose, onOrderPlaced, onOpenCustomerAuth 
             {/* Action Buttons */}
             <div className="space-y-2">
               <button
-                onClick={() => handleCheckout(false)}
+                onClick={() => handleProceedToPayment(false)}
                 style={{
                   background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
                   color: contrastText
                 }}
                 className="w-full py-3.5 px-4 rounded-xl font-extrabold text-sm hover:brightness-105 transition-all shadow-lg active:scale-95 flex items-center justify-center space-x-2"
               >
-                <span>Confirmar Pedido (Balcão / Caixa)</span>
+                {paymentMethod === 'pix' ? (
+                  <>
+                    <QrCode className="w-4 h-4" />
+                    <span>Pagar com PIX ({formatCurrency(total)}) & Fechar</span>
+                  </>
+                ) : (
+                  <span>Confirmar Pedido (Balcão / Caixa)</span>
+                )}
                 <ArrowRight className="w-4 h-4" />
               </button>
 
               <button
-                onClick={() => handleCheckout(true)}
+                onClick={() => handleProceedToPayment(true)}
                 className="w-full py-2.5 px-4 rounded-xl bg-[#25D366]/15 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white font-bold text-xs transition-all flex items-center justify-center space-x-2"
               >
                 <WhatsAppIcon className="w-4 h-4" colored={false} />
-                <span>Enviar Pedido pelo WhatsApp da Loja</span>
+                <span>
+                  {paymentMethod === 'pix' ? 'Enviar Pedido & Comprovante no WhatsApp' : 'Enviar Pedido pelo WhatsApp da Loja'}
+                </span>
               </button>
             </div>
 

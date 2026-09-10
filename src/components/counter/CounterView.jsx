@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency, formatTime, formatDateTime, STATUS_MAP, PAYMENT_METHODS } from '../../utils/formatters';
-import { Printer, CheckCircle2, AlertCircle, Clock, Search, Filter, Phone, MapPin, DollarSign, ChefHat, RefreshCw, Edit3, Bike, ShoppingBag, ArrowRightLeft } from 'lucide-react';
+import { Printer, CheckCircle2, AlertCircle, Clock, Search, Filter, Phone, MapPin, DollarSign, ChefHat, RefreshCw, Edit3, Bike, ShoppingBag, ArrowRightLeft, QrCode, X } from 'lucide-react';
 import { OrderEditModal } from '../common/OrderEditModal';
+import { PixPaymentCard } from '../common/PixPaymentCard';
 
 export const CounterView = () => {
   const {
@@ -15,11 +16,13 @@ export const CounterView = () => {
     printerSettings,
     printerStatus,
     checkPrinterConnection,
-    printTestTicket
+    printTestTicket,
+    storeSettings
   } = useOrder();
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingOrder, setEditingOrder] = useState(null);
+  const [pixOrderModal, setPixOrderModal] = useState(null);
 
   // Pending payments (waiting counter confirmation)
   const pendingOrders = orders.filter(o => o.status === 'aguardando_pagamento');
@@ -320,6 +323,19 @@ export const CounterView = () => {
                         </button>
                       </div>
 
+                      {/* PIX QR Code & Copia e Cola Button */}
+                      {order.paymentMethod === 'pix' && (
+                        <button
+                          type="button"
+                          onClick={() => setPixOrderModal(order)}
+                          className="w-full py-2 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 font-bold text-xs transition-all flex items-center justify-center space-x-1.5"
+                          title="Exibir QR Code e Código Pix deste pedido para o cliente no balcão"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                          <span>Ver QR Code PIX ({formatCurrency(order.total)})</span>
+                        </button>
+                      )}
+
                       {/* Edit Order button */}
                       <button
                         onClick={() => setEditingOrder(order)}
@@ -489,6 +505,37 @@ export const CounterView = () => {
           onSave={editOrder}
           onPrint={triggerPrintTicket}
         />
+      )}
+
+      {/* Modal de Exibição do QR Code PIX no Balcão */}
+      {pixOrderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+          <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2">
+                <QrCode className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-extrabold text-white text-base">QR Code PIX - Pedido #{pixOrderModal.id}</h3>
+              </div>
+              <button
+                onClick={() => setPixOrderModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <PixPaymentCard
+              amount={pixOrderModal.total}
+              orderId={pixOrderModal.id}
+              storeSettings={storeSettings}
+              onPaymentConfirmed={() => {
+                handleConfirmPayment(pixOrderModal);
+                setPixOrderModal(null);
+              }}
+              showActionButtons={true}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

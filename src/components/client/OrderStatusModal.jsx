@@ -2,9 +2,10 @@ import React from 'react';
 import { X, CheckCircle2, Clock, ChefHat, PackageCheck, QrCode, Sparkles } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency, STATUS_MAP, PAYMENT_METHODS } from '../../utils/formatters';
+import { PixPaymentCard } from '../common/PixPaymentCard';
 
 export const OrderStatusModal = ({ order, onClose }) => {
-  const { orders } = useOrder();
+  const { orders, storeSettings } = useOrder();
 
   if (!order) return null;
 
@@ -13,6 +14,19 @@ export const OrderStatusModal = ({ order, onClose }) => {
   const statusInfo = STATUS_MAP[liveOrder.status] || STATUS_MAP.aguardando_pagamento;
 
   const isDelivery = liveOrder.deliveryType === 'delivery';
+
+  const handleSendReceiptWhatsapp = () => {
+    const phoneDigits = String(storeSettings?.whatsapp || storeSettings?.phoneSupport || '').replace(/\D/g, '');
+    const targetNumber = phoneDigits ? (phoneDigits.startsWith('55') && phoneDigits.length >= 12 ? phoneDigits : `55${phoneDigits}`) : '';
+    const msg = `*COMPROVANTE DE PAGAMENTO PIX*\n\n` +
+      `Olá! Fiz o pagamento via PIX do *Pedido #${liveOrder.id}* no valor de *${formatCurrency(liveOrder.total)}*.\n` +
+      `Cliente: ${liveOrder.customerName}\n\n` +
+      `Seguem os dados do pedido. Aguardo a confirmação da cozinha! 🍔🍕`;
+    const waUrl = targetNumber
+      ? `https://wa.me/${targetNumber}?text=${encodeURIComponent(msg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank');
+  };
 
   const steps = [
     { key: 'aguardando_pagamento', label: '1. Pedido Recebido', desc: 'Aguardando confirmação do pagamento no caixa' },
@@ -35,7 +49,7 @@ export const OrderStatusModal = ({ order, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 my-8 max-h-[90vh] overflow-y-auto">
         
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -56,20 +70,15 @@ export const OrderStatusModal = ({ order, onClose }) => {
           </button>
         </div>
 
-        {/* PIX Quick Helper if waiting payment */}
+        {/* PIX Quick Helper if waiting payment com QR Code oficial e Copia e Cola */}
         {liveOrder.status === 'aguardando_pagamento' && liveOrder.paymentMethod === 'pix' && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
-              <QrCode className="w-4 h-4" />
-              <span>Pagamento por PIX Pendente</span>
-            </div>
-            <p className="text-xs text-slate-300">
-              Mostre a chave PIX ou o comprovante ao caixa no balcão. O operador irá confirmar e liberar seu pedido imediatamente para a cozinha.
-            </p>
-            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center font-mono text-xs font-bold text-amber-300 select-all">
-              pix@sdgdelivery.com.br (Chave CNPJ)
-            </div>
-          </div>
+          <PixPaymentCard
+            amount={liveOrder.total}
+            orderId={liveOrder.id}
+            storeSettings={storeSettings}
+            onSendWhatsapp={handleSendReceiptWhatsapp}
+            showActionButtons={true}
+          />
         )}
 
         {/* Live Timeline Steps */}
