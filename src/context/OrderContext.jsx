@@ -10,6 +10,8 @@ import {
   updateOrderStatusInDb,
   updateOrderInDb,
   subscribeToOrdersRealtime,
+  subscribeToStoreSettingsRealtime,
+  subscribeToProductsRealtime,
   saveCustomerProfile,
   loginCustomerByPin,
   fetchCustomerOrdersFromDb,
@@ -22,6 +24,13 @@ import {
   saveStoreSettingsToDb
 } from '../services/orderService';
 import { applyThemeToDocument } from '../utils/theme';
+import {
+  getPrinterSettings,
+  savePrinterSettings,
+  testPrinterStatus,
+  printDirectToNetworkPrinter,
+  printTestTicketDirect
+} from '../services/printerService';
 
 const OrderContext = createContext();
 
@@ -132,6 +141,41 @@ export const OrderProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
   const [printTicket, setPrintTicket] = useState(null);
 
+  // Configurações e status da Impressora Elgin i8 (192.168.1.150:9100)
+  const [printerSettings, setPrinterSettings] = useState(() => getPrinterSettings());
+  const [printerStatus, setPrinterStatus] = useState({ online: null, checking: false, message: '' });
+  const [printerToast, setPrinterToast] = useState(null);
+
+  const showPrinterToast = (message, type = 'success', duration = 4000) => {
+    setPrinterToast({ message, type });
+    setTimeout(() => {
+      setPrinterToast(null);
+    }, duration);
+  };
+
+  const checkPrinterConnection = useCallback(async () => {
+    setPrinterStatus(prev => ({ ...prev, checking: true }));
+    try {
+      const res = await testPrinterStatus(printerSettings);
+      setPrinterStatus({ online: res.online, checking: false, message: res.message });
+      return res;
+    } catch (e) {
+      setPrinterStatus({ online: false, checking: false, message: e.message });
+      return { online: false, message: e.message };
+    }
+  }, [printerSettings]);
+
+  useEffect(() => {
+    checkPrinterConnection();
+  }, [checkPrinterConnection]);
+
+  const updatePrinterConfig = (newCfg) => {
+    const saved = savePrinterSettings(newCfg);
+    setPrinterSettings(saved);
+    checkPrinterConnection();
+    showPrinterToast('Configurações da Elgin i8 salvas!', 'info', 2500);
+  };
+
   // Configurações e Personalização da Loja / Cardápio
   const [storeSettings, setStoreSettings] = useState(() => {
     try {
@@ -212,14 +256,16 @@ export const OrderProvider = ({ children }) => {
     return { success: false, error: res.error?.message || 'Falha ao autenticar' };
   };
 
-  const registerCustomer = async ({ name, phone, pin, address }) => {
-    const res = await saveCustomerProfile({ name, phone, address, pin });
+  const registerCustomer = async ({ name, phone, pin, address, avatar_url, avatarUrl }) => {
+    const avatar = avatar_url || avatarUrl || '';
+    const res = await saveCustomerProfile({ name, phone, address, pin, avatar_url: avatar });
     const newCustomer = {
       id: res.data?.id || `cust-${Date.now()}`,
       name,
       phone,
       address,
       pin,
+      avatar_url: avatar,
       total_orders: 1
     };
     saveCustomerSession(newCustomer);
@@ -238,8 +284,23 @@ export const OrderProvider = ({ children }) => {
       name: updated.name,
       phone: updated.phone,
       address: newAddress,
-      pin: updated.pin
+      pin: updated.pin,
+      avatar_url: updated.avatar_url || ''
     }).catch(console.error);
+  };
+
+  const updateCustomerAvatar = async (newAvatarUrl) => {
+    if (!customer) return;
+    const updated = { ...customer, avatar_url: newAvatarUrl };
+    saveCustomerSession(updated);
+    saveCustomerProfile({
+      name: updated.name,
+      phone: updated.phone,
+      address: updated.address || '',
+      pin: updated.pin,
+      avatar_url: newAvatarUrl
+    }).catch(console.error);
+    return updated;
   };
 
   // Pedir Novamente: Reinsere os itens do pedido anterior no carrinho
@@ -378,11 +439,29 @@ export const OrderProvider = ({ children }) => {
     loadProductsFromSupabase();
   }, [loadOrdersFromSupabase, loadProductsFromSupabase, dbVersion]);
 
-  // Subscribe to Supabase Realtime changes
+  // Reconexão e sincronização automática quando a rede/Wi-Fi voltar a ficar online
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
+    const handleOnline = () => {
+      console.log('🌐 Conexão à internet restabelecida! Ressincronizando banco de dados...');
+      loadOrdersFromSupabase();
+      loadProductsFromSupabase();
+      fetchStoreSettingsFromDb().then(res => {
+        if (res.data) setStoreSettings(prev => ({ ...prev, ...res.data }));
+      }).catch(console.error);
+    };
 
-    const unsubscribe = subscribeToOrdersRealtime({
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [loadOrdersFromSupabase, loadProductsFromSupabase]);
+
+  // Subscribe to Supabase Realtime changes (Pedidos, Cardápio e Configurações da Loja)
+  // Só abre os canais Realtime se o banco estiver efetivamente conectado!
+  // Evita bombardear o Supabase com tentativas de WebSocket caso o projeto esteja pausado ou offline.
+  useEffect(() => {
+    if (!isSupabaseConfigured() || dbStatus !== 'connected') return;
+
+    // 1. Canal Realtime para Pedidos (orders)
+    const unsubscribeOrders = subscribeToOrdersRealtime({
       onInsert: (newOrder) => {
         setOrders(prev => {
           if (prev.some(o => o.id === newOrder.id)) return prev;
@@ -416,10 +495,50 @@ export const OrderProvider = ({ children }) => {
       }
     });
 
+    // 2. Canal Realtime para Configurações da Loja (store_settings)
+    const unsubscribeSettings = subscribeToStoreSettingsRealtime({
+      onUpdate: (newSettings) => {
+        setStoreSettings(prev => {
+          const merged = { ...prev, ...newSettings };
+          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(merged));
+          applyThemeToDocument(merged.primaryColor, merged.secondaryColor);
+          return merged;
+        });
+      }
+    });
+
+    // 3. Canal Realtime para Cardápio de Produtos (products)
+    const unsubscribeProducts = subscribeToProductsRealtime({
+      onInsert: (newProduct) => {
+        setProducts(prev => {
+          if (prev.some(p => p.id === newProduct.id)) return prev;
+          const updated = [newProduct, ...prev];
+          localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(updated));
+          return updated;
+        });
+      },
+      onUpdate: (updatedProduct) => {
+        setProducts(prev => {
+          const updated = prev.map(p => p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p);
+          localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(updated));
+          return updated;
+        });
+      },
+      onDelete: (deletedId) => {
+        setProducts(prev => {
+          const updated = prev.filter(p => p.id !== deletedId);
+          localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(updated));
+          return updated;
+        });
+      }
+    });
+
     return () => {
-      if (typeof unsubscribe === 'function') unsubscribe();
+      if (typeof unsubscribeOrders === 'function') unsubscribeOrders();
+      if (typeof unsubscribeSettings === 'function') unsubscribeSettings();
+      if (typeof unsubscribeProducts === 'function') unsubscribeProducts();
     };
-  }, [dbVersion]);
+  }, [dbVersion, dbStatus]);
 
   // Cart operations
   const addToCart = (product, quantity = 1, selectedOptions = [], observation = '') => {
@@ -470,8 +589,15 @@ export const OrderProvider = ({ children }) => {
       : 0;
     const total = itemsSubtotal + deliveryFee;
     
+    let orderNum = Math.floor(1000 + Math.random() * 9000);
+    let orderId = `PED-${orderNum}`;
+    while (orders.some(o => o.id === orderId)) {
+      orderNum = Math.floor(1000 + Math.random() * 9000);
+      orderId = `PED-${orderNum}`;
+    }
+
     const newOrder = {
-      id: `PED-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: orderId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       customerName: customerDetails.name,
@@ -539,6 +665,43 @@ export const OrderProvider = ({ children }) => {
         console.warn('Aviso: Erro ao atualizar status no Supabase:', err);
       });
     }
+  };
+
+  /**
+   * Despacha ou altera o destino do pedido (Mandar para o Motoboy ou para o Balcão)
+   * Usado pela Cozinha e pelo Balcão para decidir o destino antes, durante ou depois do preparo.
+   */
+  const dispatchOrder = (orderId, { deliveryType, status, address }) => {
+    let targetOrder = null;
+    const updatedOrders = orders.map(order => {
+      if (order.id === orderId) {
+        const nextDeliveryType = deliveryType || order.deliveryType;
+        const nextStatus = status || order.status;
+        const nextAddress = address !== undefined ? address : order.address;
+
+        targetOrder = {
+          ...order,
+          deliveryType: nextDeliveryType,
+          status: nextStatus,
+          address: nextAddress,
+          updatedAt: new Date().toISOString()
+        };
+        return targetOrder;
+      }
+      return order;
+    });
+
+    if (targetOrder) {
+      saveAndSyncOrders(updatedOrders);
+      playAlertSound('confirm');
+
+      if (isSupabaseConfigured()) {
+        updateOrderInDb(targetOrder.id, targetOrder).catch(err => {
+          console.warn('Aviso: Erro ao persistir despacho no Supabase:', err);
+        });
+      }
+    }
+    return targetOrder;
   };
 
   // Editar Pedido completo (Balcão ou Admin: itens, cliente, pagamento, observações, etc.)
@@ -633,12 +796,45 @@ export const OrderProvider = ({ children }) => {
     setDbVersion(v => v + 1);
   };
 
-  // Thermal printing trigger helper
-  const triggerPrintTicket = (order, type = 'counter') => {
+  // Thermal printing trigger helper (Network Elgin i8 ESC/POS with Browser fallback)
+  const triggerPrintTicket = async (order, type = 'counter', forceBrowser = false) => {
+    if (printerSettings.enabled && printerSettings.mode === 'network' && !forceBrowser) {
+      const typeLabel = type === 'kitchen' ? 'Comanda Cozinha' : type === 'both' ? 'Cozinha e Balcão' : 'Cupom Balcão';
+      showPrinterToast(`Enviando ${typeLabel} para Elgin i8 (${printerSettings.ip})...`, 'info', 2000);
+      try {
+        const res = await printDirectToNetworkPrinter({ order, type, settings: printerSettings });
+        if (res.success) {
+          showPrinterToast(`✅ ${typeLabel} impresso com sucesso na Elgin i8!`, 'success', 4000);
+          setPrinterStatus(prev => ({ ...prev, online: true }));
+          return;
+        } else {
+          showPrinterToast(`⚠️ Impressora Elgin inacessível. Abrindo diálogo do navegador...`, 'error', 4500);
+          setPrinterStatus(prev => ({ ...prev, online: false }));
+        }
+      } catch (e) {
+        showPrinterToast(`⚠️ Erro ao imprimir na Elgin: ${e.message}. Abrindo navegador...`, 'error', 4500);
+        setPrinterStatus(prev => ({ ...prev, online: false }));
+      }
+    }
+
+    // Fallback nativo: abre janela do navegador formatada para bobina 80mm
     setPrintTicket({ order, type });
     setTimeout(() => {
       window.print();
-    }, 100);
+    }, 150);
+  };
+
+  const printTestTicket = async () => {
+    showPrinterToast(`Enviando teste de impressão para Elgin i8 (${printerSettings.ip}:${printerSettings.port})...`, 'info', 2000);
+    const res = await printTestTicketDirect(printerSettings);
+    if (res.success) {
+      showPrinterToast(`✅ Teste impresso com sucesso na Elgin i8 (${printerSettings.ip})!`, 'success', 4000);
+      setPrinterStatus(prev => ({ ...prev, online: true }));
+    } else {
+      showPrinterToast(`❌ Falha no teste: ${res.error}`, 'error', 5000);
+      setPrinterStatus(prev => ({ ...prev, online: false }));
+    }
+    return res;
   };
 
   const closePrintTicket = () => setPrintTicket(null);
@@ -655,10 +851,19 @@ export const OrderProvider = ({ children }) => {
       clearCart,
       createOrder,
       updateOrderStatus,
+      dispatchOrder,
       editOrder,
       printTicket,
       triggerPrintTicket,
       closePrintTicket,
+      // Elgin i8 Printer Integration
+      printerSettings,
+      updatePrinterConfig,
+      printerStatus,
+      checkPrinterConnection,
+      printTestTicket,
+      printerToast,
+      closePrinterToast: () => setPrinterToast(null),
       // Database state & triggers
       dbStatus,
       isDbConnected: dbStatus === 'connected',
@@ -677,6 +882,7 @@ export const OrderProvider = ({ children }) => {
       registerCustomer,
       logoutCustomer,
       updateCustomerAddress,
+      updateCustomerAvatar,
       reorder,
       // Store Settings & Personalização do Cardápio
       storeSettings,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Trash2, User, Phone, MapPin, Award, KeyRound, ShieldAlert } from 'lucide-react';
+import { X, Check, Trash2, User, Phone, MapPin, Award, KeyRound, ShieldAlert, Camera, Upload, Loader2 } from 'lucide-react';
+import { uploadMediaToSupabase } from '../../services/storageService';
 
 export const CustomerModalAdmin = ({ isOpen, customer, onClose, onSave, onDelete }) => {
   const [formData, setFormData] = useState({
@@ -8,9 +9,11 @@ export const CustomerModalAdmin = ({ isOpen, customer, onClose, onSave, onDelete
     phone: '',
     address: '',
     total_orders: 1,
-    pin: ''
+    pin: '',
+    avatar_url: ''
   });
 
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -29,7 +32,8 @@ export const CustomerModalAdmin = ({ isOpen, customer, onClose, onSave, onDelete
         phone: customer.phone || '',
         address: customer.address || '',
         total_orders: customer.total_orders !== undefined ? Number(customer.total_orders) : 1,
-        pin: extractedPin
+        pin: extractedPin,
+        avatar_url: customer.avatar_url || ''
       });
     } else {
       setFormData({
@@ -38,11 +42,27 @@ export const CustomerModalAdmin = ({ isOpen, customer, onClose, onSave, onDelete
         phone: '',
         address: '',
         total_orders: 0,
-        pin: ''
+        pin: '',
+        avatar_url: ''
       });
     }
     setConfirmDelete(false);
   }, [customer, isOpen]);
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    const res = await uploadMediaToSupabase(file, { folder: 'avatars', maxDim: 500 });
+    setUploadingAvatar(false);
+
+    if (res.url) {
+      setFormData(prev => ({ ...prev, avatar_url: res.url }));
+    } else {
+      alert('Erro ao enviar foto: ' + (res.error || 'Falha no upload'));
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -57,7 +77,8 @@ export const CustomerModalAdmin = ({ isOpen, customer, onClose, onSave, onDelete
       phone: formData.phone.trim(),
       address: formData.address.trim(),
       total_orders: Number(formData.total_orders) || 0,
-      pin: formData.pin.trim()
+      pin: formData.pin.trim(),
+      avatar_url: formData.avatar_url || ''
     });
     onClose();
   };
@@ -94,6 +115,52 @@ export const CustomerModalAdmin = ({ isOpen, customer, onClose, onSave, onDelete
         {/* Scrollable Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           
+          {/* Foto de Perfil */}
+          <div className="flex items-center space-x-3.5 p-3 rounded-2xl bg-slate-950 border border-slate-800">
+            <div className="relative w-14 h-14 rounded-2xl bg-slate-900 border border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+              {formData.avatar_url ? (
+                <img
+                  src={formData.avatar_url}
+                  alt={formData.name || 'Avatar'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-6 h-6 text-slate-500" />
+              )}
+              {uploadingAvatar && (
+                <div className="absolute inset-0 bg-slate-950/70 flex items-center justify-center">
+                  <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                </div>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-bold text-white">Foto de Perfil do Cliente</p>
+              <p className="text-[11px] text-slate-400 mb-1.5">Salva no Supabase Storage</p>
+              <div className="flex items-center space-x-2">
+                <label className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 text-xs font-bold cursor-pointer transition-colors">
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>{uploadingAvatar ? 'Enviando...' : formData.avatar_url ? 'Trocar Foto' : 'Carregar Foto'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                    disabled={uploadingAvatar}
+                  />
+                </label>
+                {formData.avatar_url && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, avatar_url: '' }))}
+                    className="text-xs text-rose-400 hover:underline"
+                  >
+                    Remover
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Nome */}
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase">

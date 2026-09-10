@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import {
   Palette, Image, Sparkles, Check, Clock, DollarSign,
   Phone, MapPin, Store, AlertTriangle, Eye, Upload, CheckCircle2,
-  Utensils, ExternalLink, MessageCircle, Sliders, Smartphone, Star
+  Utensils, ExternalLink, MessageCircle, Sliders, Smartphone, Star,
+  Loader2
 } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency } from '../../utils/formatters';
 import { THEME_PRESETS, isHexColorLight, formatWhatsAppLink, formatInstagramInfo } from '../../utils/theme';
 import { WhatsAppIcon, InstagramIcon } from '../common/BrandIcons';
+import { uploadMediaToSupabase } from '../../services/storageService';
 
 const PRESET_COVERS = [
   {
@@ -73,6 +75,55 @@ export const StoreCustomizationAdmin = () => {
   });
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadStatusMsg, setUploadStatusMsg] = useState('');
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingLogo(true);
+    setUploadStatusMsg('Otimizando e enviando logotipo ao Supabase Storage...');
+    const result = await uploadMediaToSupabase(file, { folder: 'store', maxDim: 600 });
+    setUploadingLogo(false);
+
+    if (result.url) {
+      setFormData(prev => {
+        const updated = { ...prev, logoUrl: result.url };
+        updateStoreSettings(updated);
+        return updated;
+      });
+      setUploadStatusMsg(result.isFallback ? 'Aviso: Imagem salva localmente.' : '✅ Logotipo salvo no Supabase com sucesso!');
+      setTimeout(() => setUploadStatusMsg(''), 4000);
+    } else {
+      setUploadStatusMsg('Erro ao enviar imagem: ' + (result.error || 'Falha no upload'));
+      setTimeout(() => setUploadStatusMsg(''), 4000);
+    }
+  };
+
+  const handleCoverUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingCover(true);
+    setUploadStatusMsg('Otimizando e enviando foto de capa ao Supabase Storage...');
+    const result = await uploadMediaToSupabase(file, { folder: 'store', maxDim: 1400 });
+    setUploadingCover(false);
+
+    if (result.url) {
+      setFormData(prev => {
+        const updated = { ...prev, coverUrl: result.url };
+        updateStoreSettings(updated);
+        return updated;
+      });
+      setUploadStatusMsg(result.isFallback ? 'Aviso: Imagem salva localmente.' : '✅ Foto de capa salva no Supabase com sucesso!');
+      setTimeout(() => setUploadStatusMsg(''), 4000);
+    } else {
+      setUploadStatusMsg('Erro ao enviar imagem: ' + (result.error || 'Falha no upload'));
+      setTimeout(() => setUploadStatusMsg(''), 4000);
+    }
+  };
 
   const handleSelectPreset = (preset) => {
     setFormData(prev => ({
@@ -271,11 +322,35 @@ export const StoreCustomizationAdmin = () => {
               />
             </div>
 
+            {/* Feedback de Upload em Tempo Real */}
+            {uploadStatusMsg && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs font-bold flex items-center space-x-2 animate-in fade-in">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>{uploadStatusMsg}</span>
+              </div>
+            )}
+
             {/* Logotipo da Loja */}
-            <div className="space-y-2 pt-1">
-              <label className="block text-xs font-bold text-slate-300">
-                Logotipo da Loja (URL da Imagem)
-              </label>
+            <div className="space-y-2.5 pt-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="block text-xs font-bold text-slate-300">
+                  Logotipo da Loja
+                </label>
+
+                {/* Botão de Upload de Arquivo para Supabase */}
+                <label className="cursor-pointer inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all active:scale-95 shrink-0">
+                  {uploadingLogo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  <span>{uploadingLogo ? 'Otimizando & Enviando...' : '📷 Carregar Foto/Logo do Dispositivo'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    disabled={uploadingLogo}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
               <div className="flex items-center space-x-3">
                 <div className="w-14 h-14 rounded-2xl bg-slate-950 border-2 border-slate-800 overflow-hidden flex items-center justify-center shrink-0 p-1 shadow-md">
                   {formData.logoUrl ? (
@@ -300,7 +375,7 @@ export const StoreCustomizationAdmin = () => {
                     value={formData.logoUrl}
                     onChange={e => setFormData({ ...formData, logoUrl: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:border-[var(--brand-primary,#f59e0b)] outline-none"
-                    placeholder="https://exemplo.com/sua-logo.png (ou cole o link da sua imagem)"
+                    placeholder="URL direta da imagem (preenchida automaticamente ao carregar arquivo)"
                   />
                   {formData.logoUrl && (
                     <button
@@ -342,14 +417,32 @@ export const StoreCustomizationAdmin = () => {
             </div>
 
             {/* Imagem de Capa do Banner */}
-            <div className="space-y-2 pt-2">
-              <label className="block text-xs font-bold text-slate-300">Foto de Capa do Cardápio (Banner Superior)</label>
+            <div className="space-y-2.5 pt-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="block text-xs font-bold text-slate-300">
+                  Foto de Capa do Cardápio (Banner Superior)
+                </label>
+
+                {/* Botão de Upload da Capa para Supabase */}
+                <label className="cursor-pointer inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all active:scale-95 shrink-0">
+                  {uploadingCover ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  <span>{uploadingCover ? 'Otimizando & Enviando...' : '📷 Carregar Capa do Dispositivo'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverUpload}
+                    disabled={uploadingCover}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
               <input
                 type="url"
                 value={formData.coverUrl}
                 onChange={e => setFormData({ ...formData, coverUrl: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:border-[var(--brand-primary,#f59e0b)] outline-none"
-                placeholder="URL da foto de capa (banner em alta resolução)"
+                placeholder="URL da foto de capa (preenchida automaticamente ao carregar arquivo)"
               />
 
               <span className="text-[10px] text-slate-500 font-bold block uppercase">Capas em Alta Definição:</span>

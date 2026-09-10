@@ -19,12 +19,14 @@ create table public.customers (
   name text not null,
   address text default '',
   neighborhood text default '',
+  avatar_url text default '',
   total_orders integer not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create index idx_customers_phone on public.customers (phone);
+alter table public.customers add column if not exists avatar_url text default '';
 
 -- 3. TABELA DE CATEGORIAS (categories)
 create table public.categories (
@@ -138,10 +140,46 @@ begin
   exception when others then null;
   end;
   begin
+    alter publication supabase_realtime add table public.products;
+  exception when others then null;
+  end;
+  begin
     alter publication supabase_realtime add table public.store_settings;
   exception when others then null;
   end;
 end $$;
+
+-- 8.1. STORAGE BUCKET PÚBLICO PARA MÍDIAS (delivery-media)
+-- Permite upload e visualização de logotipo, banner de capa, fotos de produtos e avatares de clientes
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'delivery-media',
+  'delivery-media',
+  true,
+  10485760, -- limite de 10MB por arquivo
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update set public = true;
+
+drop policy if exists "allow_public_read_delivery_media" on storage.objects;
+create policy "allow_public_read_delivery_media"
+on storage.objects for select
+using (bucket_id = 'delivery-media');
+
+drop policy if exists "allow_public_insert_delivery_media" on storage.objects;
+create policy "allow_public_insert_delivery_media"
+on storage.objects for insert
+with check (bucket_id = 'delivery-media');
+
+drop policy if exists "allow_public_update_delivery_media" on storage.objects;
+create policy "allow_public_update_delivery_media"
+on storage.objects for update
+using (bucket_id = 'delivery-media');
+
+drop policy if exists "allow_public_delete_delivery_media" on storage.objects;
+create policy "allow_public_delete_delivery_media"
+on storage.objects for delete
+using (bucket_id = 'delivery-media');
 
 -- 9. DADOS INICIAIS DO CARDÁPIO (SEED)
 insert into public.categories (id, name, icon, sort_order)

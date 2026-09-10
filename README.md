@@ -91,6 +91,31 @@ VITE_SUPABASE_ANON_KEY=sua-chave-anon-publica-aqui
 
 ---
 
+## 🖨️ Integração com Impressora Térmica Elgin i8 (Rede 192.168.1.150)
+
+O sistema agora possui **integração nativa de rede** com a impressora térmica **Elgin i8 / i9** via comandos **ESC/POS** de alta velocidade na porta **9100**:
+
+- 🍳 **Comanda da Cozinha (Produção / KDS)**:
+  - Itens e quantidades em fonte grande e destacada (`[ 2x ]`).
+  - Sem valores monetários para não poluir a visualização dos cozinheiros.
+  - Destaque especial para adicionais e observações.
+  - Corte automático de guilhotina (`GS V 66 0`).
+- 🧾 **Cupom do Balcão / Cliente / Caixa**:
+  - Dados completos do cliente, endereço, telefone e forma de pagamento.
+  - Tabela com subtotal, taxa de entrega, total a pagar e status.
+  - Corte automático de guilhotina.
+- ⚡ **Zero Diálogo (Impressão Silenciosa e Instantânea)**:
+  - Ao clicar em **Confirmar Pagamento** no Caixa/Balcão, os cupons são impressos e cortados instantaneamente na Elgin sem abrir telas de confirmação no navegador.
+  - Opção no Balcão de imprimir: **Cozinha**, **Balcão** ou **Ambos**.
+  - Monitor em tempo real na tela do status da impressora (`🟢 Elgin i8 Conectada`).
+  - Botão de **Imprimir Teste** no painel de Administração e nos cabeçalhos.
+- 🚀 **Como Iniciar a Impressão**:
+  - **Modo Desenvolvimento Local**: Já funciona automaticamente ao rodar `npm run dev` (o Vite inclui o middleware ESC/POS).
+  - **Servidor Standalone / Produção**: Execute `npm run printer` ou dê dois cliques no arquivo `iniciar-impressora.bat` para manter o serviço ativo na porta 3001.
+  - **Fallback Inteligente**: Se a impressora estiver desligada ou o cabo desconectado, o sistema avisa na tela e abre a visualização do navegador para não travar a operação do restaurante.
+
+---
+
 ## 📦 Como Subir no GitHub e Fazer Deploy na Vercel
 
 ### Passo 1: Versionar no Git

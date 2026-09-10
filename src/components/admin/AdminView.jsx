@@ -3,7 +3,8 @@ import {
   Users, ShoppingBag, DollarSign, TrendingUp, Smartphone,
   Monitor, ChefHat, ExternalLink, Copy, Check, Search, Phone,
   MapPin, Utensils, Award, ShieldCheck, CheckCircle2, MessageCircle,
-  Plus, Edit3, Trash2, Eye, EyeOff, Printer, Clock, Filter, Sparkles, Palette
+  Plus, Edit3, Trash2, Eye, EyeOff, Printer, Clock, Filter, Sparkles, Palette,
+  Bike
 } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import {
@@ -17,6 +18,7 @@ import { ProductModalAdmin } from './ProductModalAdmin';
 import { CustomerModalAdmin } from './CustomerModalAdmin';
 import { OrderEditModal } from '../common/OrderEditModal';
 import { StoreCustomizationAdmin } from './StoreCustomizationAdmin';
+import { PrinterSettingsAdmin } from './PrinterSettingsAdmin';
 
 export const AdminView = () => {
   const {
@@ -51,6 +53,7 @@ export const AdminView = () => {
   const clientUrl = `${originUrl}/`;
   const counterUrl = `${originUrl}/balcao`;
   const kitchenUrl = `${originUrl}/cozinha`;
+  const motoboyUrl = `${originUrl}/motoboy`;
 
   // Carregar lista de clientes do banco de dados
   const loadCustomers = useCallback(async () => {
@@ -300,6 +303,18 @@ export const AdminView = () => {
           </button>
 
           <button
+            onClick={() => setActiveTab('printer')}
+            className={`py-3 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center space-x-1.5 ${
+              activeTab === 'printer'
+                ? 'bg-amber-500 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Printer className="w-4 h-4 shrink-0" />
+            <span>Impressora Elgin</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('links')}
             className={`py-3 px-2 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center space-x-1.5 ${
               activeTab === 'links'
@@ -506,11 +521,19 @@ export const AdminView = () => {
                       const cleanPhone = (cust.phone || '').replace(/\D/g, '');
                       return (
                         <tr key={cust.id || idx} className="hover:bg-slate-800/40 transition-colors">
-                          <td className="py-3 px-4 font-bold text-white flex items-center space-x-2">
-                            <div className="w-7 h-7 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-extrabold text-xs">
-                              {(cust.name || 'C').charAt(0).toUpperCase()}
-                            </div>
-                            <span>{cust.name}</span>
+                          <td className="py-3 px-4 font-bold text-white flex items-center space-x-2.5">
+                            {cust.avatar_url ? (
+                              <img
+                                src={cust.avatar_url}
+                                alt={cust.name}
+                                className="w-8 h-8 rounded-full object-cover border border-amber-500/40 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-extrabold text-xs shrink-0">
+                                {(cust.name || 'C').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <span className="truncate">{cust.name}</span>
                           </td>
 
                           <td className="py-3 px-4 font-mono text-slate-300">
@@ -727,7 +750,7 @@ export const AdminView = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               
               {/* CARD 1: CLIENTE */}
               <div className="bg-slate-900 border-2 border-emerald-500/40 rounded-3xl p-6 flex flex-col justify-between space-y-5 shadow-xl hover:border-emerald-400 transition-all">
@@ -851,6 +874,46 @@ export const AdminView = () => {
                 </div>
               </div>
 
+              {/* CARD 4: MOTOBOY (ENTREGADOR) */}
+              <div className="bg-slate-900 border-2 border-orange-500/40 rounded-3xl p-6 flex flex-col justify-between space-y-5 shadow-xl hover:border-orange-400 transition-all">
+                <div className="space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
+                    <Bike className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-md">
+                      Logística • Entregas
+                    </span>
+                    <h3 className="text-lg font-black text-white mt-1">4. App do Motoboy</h3>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      O entregador abre no próprio celular. Recebe pedidos prontos, abre rota no GPS (Waze/Maps) e conclui a entrega com 1 clique.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 font-mono text-xs text-orange-400 truncate select-all">
+                    {motoboyUrl}
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <button
+                    onClick={() => handleCopy(motoboyUrl, 'motoboy')}
+                    className="w-full py-2.5 px-3 rounded-xl bg-orange-500 text-slate-950 font-black text-xs hover:bg-orange-400 transition-all flex items-center justify-center space-x-1.5 shadow-md shadow-orange-500/20"
+                  >
+                    {copiedKey === 'motoboy' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedKey === 'motoboy' ? 'Link Copiado!' : 'Copiar Link Motoboy'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setCurrentView('motoboy')}
+                    className="w-full py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center space-x-1.5"
+                  >
+                    <Bike className="w-3.5 h-3.5 text-orange-400" />
+                    <span>Ir para o Motoboy</span>
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
@@ -860,6 +923,13 @@ export const AdminView = () => {
         {/* ============================================================================== */}
         {activeTab === 'customization' && (
           <StoreCustomizationAdmin />
+        )}
+
+        {/* ============================================================================== */}
+        {/* ABA: CONFIGURAÇÃO DA IMPRESSORA TÉRMICA ELGIN i8 */}
+        {/* ============================================================================== */}
+        {activeTab === 'printer' && (
+          <PrinterSettingsAdmin />
         )}
 
       </div>

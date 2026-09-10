@@ -88,11 +88,24 @@ export const insertOrderInDb = async (order) => {
 
   try {
     const row = mapOrderToRow(order);
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('orders')
       .insert([row])
       .select()
       .single();
+
+    // Se houver conflito de chave primária no ID, gera um sufixo e tenta novamente
+    if (error && error.code === '23505') {
+      console.warn('ID de pedido já existente no Supabase, gerando novo identificador...');
+      row.id = `${row.id}-${Math.floor(10 + Math.random() * 90)}`;
+      const retryResult = await supabase
+        .from('orders')
+        .insert([row])
+        .select()
+        .single();
+      data = retryResult.data;
+      error = retryResult.error;
+    }
 
     if (error) throw error;
 
@@ -233,6 +246,71 @@ export const subscribeToOrdersRealtime = ({ onInsert, onUpdate, onDelete }) => {
         console.log('📡 Conectado ao Supabase Realtime (tabela orders)');
       }
     });
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};
+
+/**
+ * Inscreve no canal Supabase Realtime para a tabela 'store_settings'.
+ */
+export const subscribeToStoreSettingsRealtime = ({ onUpdate }) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return () => {};
+
+  const channel = supabase
+    .channel('sdg_settings_realtime')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'store_settings'
+      },
+      (payload) => {
+        if (payload.new && payload.new.settings) {
+          if (onUpdate) onUpdate(payload.new.settings);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};
+
+/**
+ * Inscreve no canal Supabase Realtime para a tabela 'products'.
+ */
+export const subscribeToProductsRealtime = ({ onInsert, onUpdate, onDelete }) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return () => {};
+
+  const channel = supabase
+    .channel('sdg_products_realtime')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'products'
+      },
+      (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const newProduct = mapRowToProduct(payload.new);
+          if (onInsert) onInsert(newProduct);
+        } else if (payload.eventType === 'UPDATE') {
+          const updatedProduct = mapRowToProduct(payload.new);
+          if (onUpdate) onUpdate(updatedProduct);
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = payload.old?.id;
+          if (onDelete && deletedId) onDelete(deletedId);
+        }
+      }
+    )
+    .subscribe();
 
   return () => {
     supabase.removeChannel(channel);
@@ -395,18 +473,24 @@ export const toggleProductActiveInDb = async (productId, isActive) => {
 /**
  * Salva ou atualiza o perfil do cliente no Supabase.
  */
-export const saveCustomerProfile = async ({ name, phone, address, pin }) => {
+export const saveCustomerProfile = async ({ name, phone, address, pin, avatar_url, avatarUrl }) => {
   const supabase = getSupabaseClient();
   if (!supabase) return { data: null, error: null };
 
+  const avatar = (avatar_url || avatarUrl || '').trim();
+
   try {
     const payload = {
-      name,
-      phone,
-      address: address || '',
-      neighborhood: pin ? `PIN:${pin}` : '',
+      name: name?.trim(),
+      phone: phone?.trim(),
+      address: address?.trim() || '',
+      neighborhood: pin ? `PIN:${pin.trim()}` : '',
       updated_at: new Date().toISOString()
     };
+
+    if (avatar) {
+      payload.avatar_url = avatar;
+    }
 
     const { data, error } = await supabase
       .from('customers')
@@ -461,6 +545,7 @@ export const loginCustomerByPin = async (phone, pin) => {
         name: data.name,
         phone: data.phone,
         address: data.address,
+        avatar_url: data.avatar_url || '',
         total_orders: data.total_orders || 1,
         pin: pin.trim()
       },
@@ -500,9 +585,11 @@ export const fetchCustomerOrdersFromDb = async (phone) => {
 /**
  * Atualiza cadastro de cliente no Supabase (Admin).
  */
-export const updateCustomerInDb = async (customerId, { name, phone, address, total_orders, pin }) => {
+export const updateCustomerInDb = async (customerId, { name, phone, address, total_orders, pin, avatar_url, avatarUrl }) => {
   const supabase = getSupabaseClient();
   if (!supabase) return { data: null, error: null };
+
+  const avatar = avatar_url !== undefined ? avatar_url : avatarUrl;
 
   try {
     const payload = {
@@ -517,6 +604,9 @@ export const updateCustomerInDb = async (customerId, { name, phone, address, tot
     }
     if (pin && pin.trim()) {
       payload.neighborhood = `PIN:${pin.trim()}`;
+    }
+    if (avatar !== undefined) {
+      payload.avatar_url = avatar?.trim() || '';
     }
 
     const { data, error } = await supabase

@@ -181,6 +181,10 @@ export const ClientView = () => {
         isOpen={isCustomerAuthOpen}
         onClose={() => setIsCustomerAuthOpen(false)}
         onOpenCart={() => setIsCartOpen(true)}
+        onTrackOrder={(order) => {
+          setIsCustomerAuthOpen(false);
+          setActiveOrderTrack(order);
+        }}
       />
 
       {/* Live Order Status Tracker */}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Check, Sparkles, Image, DollarSign, Tag, Utensils, ListPlus, ChevronDown } from 'lucide-react';
+import { X, Plus, Trash2, Check, Sparkles, Image, DollarSign, Tag, Utensils, ListPlus, ChevronDown, Upload, Loader2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
+import { uploadMediaToSupabase } from '../../services/storageService';
 
 const PRESET_IMAGES = [
   { label: 'Smash Burger', url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80' },
@@ -69,6 +70,22 @@ export const ProductModalAdmin = ({ isOpen, product, categories, onClose, onSave
   // Novo grupo de adicionais manual
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupType, setNewGroupType] = useState('checkbox');
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    const result = await uploadMediaToSupabase(file, { folder: 'products', maxDim: 1000 });
+    setUploadingImage(false);
+
+    if (result.url) {
+      setFormData(prev => ({ ...prev, image: result.url }));
+    } else {
+      alert('Erro ao carregar foto do produto: ' + (result.error || 'Falha no upload'));
+    }
+  };
 
   useEffect(() => {
     if (product) {
@@ -275,11 +292,27 @@ export const ProductModalAdmin = ({ isOpen, product, categories, onClose, onSave
             />
           </div>
 
-          {/* Imagem */}
+          {/* Imagem do Produto com Upload Direto */}
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-slate-300 uppercase">
-              Foto do Produto (URL)
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-300 uppercase">
+                Foto do Produto
+              </label>
+
+              {/* Botão de Carregar Imagem */}
+              <label className="cursor-pointer inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all active:scale-95">
+                {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                <span>{uploadingImage ? 'Enviando ao Supabase...' : '📷 Carregar Foto do Dispositivo'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
             <div className="flex items-center space-x-3">
               <div className="w-14 h-14 rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden shrink-0">
                 <img
@@ -291,7 +324,7 @@ export const ProductModalAdmin = ({ isOpen, product, categories, onClose, onSave
               </div>
               <input
                 type="url"
-                placeholder="Cole a URL da foto ou selecione uma abaixo"
+                placeholder="URL da foto (preenchida automaticamente ao carregar arquivo)"
                 value={formData.image}
                 onChange={e => setFormData({ ...formData, image: e.target.value })}
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 outline-none truncate"

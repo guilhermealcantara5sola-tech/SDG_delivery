@@ -125,7 +125,15 @@ export const HeaderBanner = ({ searchQuery, setSearchQuery, onOpenCart, onOpenCu
               onClick={onOpenCustomerAuth}
               className="flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-4 py-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-[var(--brand-primary,#f59e0b)]/40 text-slate-200 hover:text-[var(--brand-primary,#f59e0b)] font-bold text-xs transition-all shadow-md active:scale-95"
             >
-              <User className="w-4 h-4 text-[var(--brand-primary,#f59e0b)]" />
+              {customer?.avatar_url ? (
+                <img
+                  src={customer.avatar_url}
+                  alt={customer.name}
+                  className="w-5 h-5 rounded-full object-cover border border-[var(--brand-primary,#f59e0b)]/40 shrink-0"
+                />
+              ) : (
+                <User className="w-4 h-4 text-[var(--brand-primary,#f59e0b)] shrink-0" />
+              )}
               <span>
                 {customer ? `Olá, ${customer.name.split(' ')[0]}` : 'Cadastrar / Entrar'}
               </span>

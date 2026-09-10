@@ -1,10 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useOrder } from '../../context/OrderContext';
 import { formatTime, formatCurrency } from '../../utils/formatters';
-import { ChefHat, Printer, Play, CheckCircle2, Clock, CheckCheck, AlertTriangle } from 'lucide-react';
+import {
+  ChefHat, Printer, Play, CheckCircle2, Clock, CheckCheck,
+  AlertTriangle, Bike, Store, ArrowRightLeft, Send, MapPin, Check
+} from 'lucide-react';
 
 export const KitchenView = () => {
-  const { orders, updateOrderStatus, triggerPrintTicket } = useOrder();
+  const {
+    orders,
+    updateOrderStatus,
+    dispatchOrder,
+    triggerPrintTicket,
+    printerSettings,
+    printerStatus,
+    printTestTicket
+  } = useOrder();
 
   // Kitchen active orders
   const newOrders = orders.filter(o => o.status === 'pagamento_confirmado');
@@ -48,42 +59,62 @@ export const KitchenView = () => {
               <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
               <span>Monitor da Cozinha & KDS</span>
             </div>
-            <h1 className="text-3xl font-extrabold text-white">Linha de Produção da Cozinha</h1>
+            <h1 className="text-3xl font-extrabold text-white">Linha de Produção & Expedição</h1>
             <p className="text-slate-400 text-sm mt-1">
-              Os pedidos aparecem aqui automaticamente assim que o Caixa/Balcão confirma o pagamento.
+              Ao concluir o prato, escolha se vai para o <b>Motoboy (Entrega)</b> ou para o <b>Balcão (Retirada)</b>.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {/* Elgin i8 Network Status Badge */}
+            <div className="flex items-center space-x-2 px-3.5 py-2 rounded-2xl bg-slate-950 border border-slate-800 text-xs shadow-inner">
+              <span className={`w-2.5 h-2.5 rounded-full ${printerStatus?.online ? 'bg-emerald-400 animate-pulse' : printerStatus?.checking ? 'bg-amber-400 animate-ping' : 'bg-rose-500'}`}></span>
+              <div className="flex flex-col">
+                <div className="flex items-center space-x-1 font-bold text-white text-[11px]">
+                  <Printer className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <span>Elgin i8 ({printerSettings?.ip || '192.168.1.150'})</span>
+                </div>
+                <span className="text-[10px] text-slate-400">
+                  {printerStatus?.online ? '🟢 Conectada' : printerStatus?.checking ? 'Testando...' : '🔴 Offline'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => printTestTicket()}
+                className="ml-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded-lg text-[10px] font-bold transition-all"
+                title="Imprimir comanda de teste na impressora Elgin"
+              >
+                Testar
+              </button>
+            </div>
+
             {/* Auto-print toggle for kitchen */}
             <div
               onClick={toggleAutoPrintIncoming}
-              className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl border cursor-pointer select-none transition-all ${
+              className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-2xl border cursor-pointer select-none transition-all ${
                 autoPrintIncoming
                   ? 'bg-blue-500/10 border-blue-500/40 text-blue-300'
                   : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
               }`}
-              title="Ao ativar, novos pedidos confirmados abrirão a impressão da ficha automaticamente nesta tela"
+              title="Imprimir automaticamente a comanda na cozinha quando o caixa confirmar o pedido"
             >
               <input
                 type="checkbox"
                 checked={autoPrintIncoming}
                 onChange={toggleAutoPrintIncoming}
-                className="w-4 h-4 rounded text-blue-500 bg-slate-900 border-slate-700 focus:ring-blue-500 cursor-pointer accent-blue-500"
+                className="w-4 h-4 rounded text-blue-500 bg-slate-900 border-slate-700 cursor-pointer accent-blue-500"
               />
               <div className="text-xs font-bold">
                 <div className="flex items-center space-x-1">
                   <Printer className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Auto-imprimir na Cozinha</span>
-                </div>
-                <div className="text-[10px] text-slate-400">
-                  {autoPrintIncoming ? '🟢 Ativado nesta tela' : '⚪ Desativado'}
+                  <span>Imprimir Automático</span>
                 </div>
               </div>
             </div>
 
+            {/* Quick Metrics */}
             <div className="bg-slate-950 px-4 py-2.5 rounded-2xl border border-slate-800 text-center">
-              <div className="text-[10px] text-slate-500 uppercase font-bold">Novos Pedidos</div>
+              <div className="text-[10px] text-slate-500 uppercase font-bold">Para Preparar</div>
               <div className="text-xl font-black text-blue-400">{newOrders.length}</div>
             </div>
             <div className="bg-slate-950 px-4 py-2.5 rounded-2xl border border-slate-800 text-center">
@@ -119,73 +150,89 @@ export const KitchenView = () => {
                 Nenhum novo pedido na fila.
               </div>
             ) : (
-              newOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="bg-slate-900 border-2 border-blue-500/60 rounded-2xl p-4 shadow-xl space-y-4 animate-in fade-in"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-base font-black text-blue-400">{order.id}</span>
-                        <span className="text-xs text-slate-400 font-semibold">{formatTime(order.createdAt)}</span>
-                      </div>
-                      <div className="font-extrabold text-white text-sm mt-0.5">{order.customerName}</div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500 text-slate-950 uppercase">
-                      NOVO
-                    </span>
-                  </div>
+              newOrders.map((order) => {
+                const isDelivery = order.deliveryType === 'delivery';
 
-                  {/* Order items */}
-                  <div className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs">
-                    {order.items.map((item, idx) => (
-                      <div key={idx} className="space-y-0.5 border-b border-slate-900 pb-1.5 last:border-none">
-                        <div className="flex justify-between font-extrabold text-white">
-                          <span>{item.quantity}x {item.name}</span>
+                return (
+                  <div
+                    key={order.id}
+                    className="bg-slate-900 border-2 border-blue-500/60 rounded-2xl p-4 shadow-xl space-y-4 animate-in fade-in"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-base font-black text-blue-400">{order.id}</span>
+                          <span className="text-xs text-slate-400 font-semibold">{formatTime(order.createdAt)}</span>
                         </div>
-                        {item.selectedOptions && item.selectedOptions.length > 0 && (
-                          <div className="text-[11px] text-amber-400 font-semibold pl-2">
-                            {item.selectedOptions.map((opt, oIdx) => (
-                              <div key={oIdx}>+ {opt}</div>
-                            ))}
-                          </div>
-                        )}
-                        {item.observation && (
-                          <div className="text-[11px] text-rose-400 font-bold underline pl-2">
-                            Obs: {item.observation}
-                          </div>
-                        )}
+                        <div className="font-extrabold text-white text-sm mt-0.5">{order.customerName}</div>
                       </div>
-                    ))}
-                  </div>
 
-                  {order.observation && (
-                    <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[11px] font-bold text-amber-300">
-                      OBS GERAL: {order.observation}
+                      {/* Tag do destino */}
+                      <button
+                        onClick={() => dispatchOrder(order.id, { deliveryType: isDelivery ? 'takeout' : 'delivery' })}
+                        className={`px-2.5 py-1 rounded-xl text-[10px] font-black border transition-all flex items-center space-x-1 ${
+                          isDelivery
+                            ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                            : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                        }`}
+                        title="Clique para alternar o destino antes de preparar"
+                      >
+                        {isDelivery ? <Bike className="w-3 h-3" /> : <Store className="w-3 h-3" />}
+                        <span>{isDelivery ? 'Entrega' : 'Balcão'}</span>
+                        <ArrowRightLeft className="w-2.5 h-2.5 opacity-60" />
+                      </button>
                     </div>
-                  )}
 
-                  {/* Actions */}
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <button
-                      onClick={() => triggerPrintTicket(order, 'kitchen')}
-                      className="py-2 px-3 rounded-xl bg-slate-800 text-slate-200 font-bold text-xs hover:bg-slate-700 transition-all flex items-center justify-center space-x-1"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Ficha Cozinha</span>
-                    </button>
+                    {/* Order items */}
+                    <div className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs">
+                      {order.items.map((item, idx) => (
+                        <div key={idx} className="space-y-0.5 border-b border-slate-900 pb-1.5 last:border-none">
+                          <div className="flex justify-between font-extrabold text-white">
+                            <span>{item.quantity}x {item.name}</span>
+                          </div>
+                          {item.selectedOptions && item.selectedOptions.length > 0 && (
+                            <div className="text-[11px] text-amber-400 font-semibold pl-2">
+                              {item.selectedOptions.map((opt, oIdx) => (
+                                <div key={oIdx}>+ {typeof opt === 'string' ? opt : opt.name}</div>
+                              ))}
+                            </div>
+                          )}
+                          {item.observation && (
+                            <div className="text-[11px] text-rose-400 font-bold underline pl-2">
+                              Obs: {item.observation}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
 
-                    <button
-                      onClick={() => updateOrderStatus(order.id, 'em_preparo')}
-                      className="py-2 px-3 rounded-xl bg-purple-600 text-white font-extrabold text-xs hover:bg-purple-500 transition-all flex items-center justify-center space-x-1 shadow-md shadow-purple-600/20"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-white" />
-                      <span>Iniciar Preparo</span>
-                    </button>
+                    {order.observation && (
+                      <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[11px] font-bold text-amber-300">
+                        OBS GERAL: {order.observation}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        onClick={() => triggerPrintTicket(order, 'kitchen')}
+                        className="py-2 px-3 rounded-xl bg-slate-800 text-slate-200 font-bold text-xs hover:bg-slate-700 transition-all flex items-center justify-center space-x-1"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Ficha Cozinha</span>
+                      </button>
+
+                      <button
+                        onClick={() => updateOrderStatus(order.id, 'em_preparo')}
+                        className="py-2 px-3 rounded-xl bg-purple-600 text-white font-extrabold text-xs hover:bg-purple-500 transition-all flex items-center justify-center space-x-1 shadow-md shadow-purple-600/20 active:scale-95"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-white" />
+                        <span>Iniciar Preparo</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -208,57 +255,112 @@ export const KitchenView = () => {
                 Nenhum prato sendo preparado no momento.
               </div>
             ) : (
-              inPreparation.map((order) => (
-                <div
-                  key={order.id}
-                  className="bg-slate-900 border-2 border-purple-500/60 rounded-2xl p-4 shadow-xl space-y-4"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-base font-black text-purple-400">{order.id}</span>
-                        <span className="text-xs text-slate-400 font-semibold">{formatTime(order.createdAt)}</span>
-                      </div>
-                      <div className="font-extrabold text-white text-sm mt-0.5">{order.customerName}</div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500 text-white uppercase animate-pulse">
-                      PREPARANDO
-                    </span>
-                  </div>
+              inPreparation.map((order) => {
+                const isDelivery = order.deliveryType === 'delivery';
 
-                  {/* Items */}
-                  <div className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs">
-                    {order.items.map((item, idx) => (
-                      <div key={idx} className="space-y-0.5 border-b border-slate-900 pb-1.5 last:border-none">
-                        <div className="flex justify-between font-extrabold text-white">
-                          <span>{item.quantity}x {item.name}</span>
-                        </div>
-                        {item.selectedOptions && item.selectedOptions.length > 0 && (
-                          <div className="text-[11px] text-amber-400 font-semibold pl-2">
-                            {item.selectedOptions.map((opt, oIdx) => (
-                              <div key={oIdx}>+ {opt}</div>
-                            ))}
-                          </div>
-                        )}
-                        {item.observation && (
-                          <div className="text-[11px] text-rose-400 font-bold underline pl-2">
-                            Obs: {item.observation}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Complete Action */}
-                  <button
-                    onClick={() => updateOrderStatus(order.id, 'pronto')}
-                    className="w-full py-2.5 px-3 rounded-xl bg-emerald-500 text-slate-950 font-extrabold text-xs hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-1.5"
+                return (
+                  <div
+                    key={order.id}
+                    className="bg-slate-900 border-2 border-purple-500/60 rounded-2xl p-4 shadow-xl space-y-4"
                   >
-                    <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-                    <span>Marcar como PRONTO</span>
-                  </button>
-                </div>
-              ))
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-base font-black text-purple-400">{order.id}</span>
+                          <span className="text-xs text-slate-400 font-semibold">{formatTime(order.createdAt)}</span>
+                        </div>
+                        <div className="font-extrabold text-white text-sm mt-0.5">{order.customerName}</div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500 text-white uppercase animate-pulse">
+                          PREPARANDO
+                        </span>
+                        <div className="text-[10px] text-slate-400 font-bold mt-1 flex items-center justify-end space-x-1">
+                          {isDelivery ? (
+                            <span className="text-amber-300 flex items-center space-x-1">
+                              <Bike className="w-3 h-3" />
+                              <span>Para Entrega</span>
+                            </span>
+                          ) : (
+                            <span className="text-emerald-300 flex items-center space-x-1">
+                              <Store className="w-3 h-3" />
+                              <span>Para Balcão</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Items */}
+                    <div className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs">
+                      {order.items.map((item, idx) => (
+                        <div key={idx} className="space-y-0.5 border-b border-slate-900 pb-1.5 last:border-none">
+                          <div className="flex justify-between font-extrabold text-white">
+                            <span>{item.quantity}x {item.name}</span>
+                          </div>
+                          {item.selectedOptions && item.selectedOptions.length > 0 && (
+                            <div className="text-[11px] text-amber-400 font-semibold pl-2">
+                              {item.selectedOptions.map((opt, oIdx) => (
+                                <div key={oIdx}>+ {typeof opt === 'string' ? opt : opt.name}</div>
+                              ))}
+                            </div>
+                          )}
+                          {item.observation && (
+                            <div className="text-[11px] text-rose-400 font-bold underline pl-2">
+                              Obs: {item.observation}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {order.observation && (
+                      <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[11px] font-bold text-amber-300">
+                        OBS: {order.observation}
+                      </div>
+                    )}
+
+                    {/* DECISÃO DA COZINHA: MANDAR PARA O MOTOBOY OU PARA O BALCÃO */}
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[10px] uppercase font-black text-slate-400 block text-center">
+                        Pronto! Para onde mandar?
+                      </span>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Botão Mandar para o Motoboy */}
+                        <button
+                          onClick={() => dispatchOrder(order.id, { deliveryType: 'delivery', status: 'pronto' })}
+                          className={`py-3 px-2 rounded-xl font-black text-xs flex items-center justify-center space-x-1.5 transition-all active:scale-95 shadow-lg ${
+                            isDelivery
+                              ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20 ring-2 ring-amber-400/50'
+                              : 'bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-300 border border-amber-500/30'
+                          }`}
+                          title="Enviar para a expedição e chamar o Motoboy para entrega na rua"
+                        >
+                          <Bike className="w-4 h-4 stroke-[2.5]" />
+                          <span>p/ Motoboy 🛵</span>
+                        </button>
+
+                        {/* Botão Mandar para o Balcão */}
+                        <button
+                          onClick={() => dispatchOrder(order.id, { deliveryType: 'takeout', status: 'pronto' })}
+                          className={`py-3 px-2 rounded-xl font-black text-xs flex items-center justify-center space-x-1.5 transition-all active:scale-95 shadow-lg ${
+                            !isDelivery
+                              ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20 ring-2 ring-emerald-400/50'
+                              : 'bg-slate-800 hover:bg-emerald-500 hover:text-slate-950 text-emerald-300 border border-emerald-500/30'
+                          }`}
+                          title="Enviar para o Balcão para o cliente retirar no local"
+                        >
+                          <Store className="w-4 h-4 stroke-[2.5]" />
+                          <span>p/ Balcão 🛍️</span>
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -272,7 +374,7 @@ export const KitchenView = () => {
                 </h2>
               </div>
               <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                Expedição / Entrega
+                Expedição & Saída
               </span>
             </div>
 
@@ -281,36 +383,89 @@ export const KitchenView = () => {
                 Nenhum pedido aguardando expedição.
               </div>
             ) : (
-              readyOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="bg-slate-900 border-2 border-emerald-500/60 rounded-2xl p-4 shadow-xl space-y-4"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-base font-black text-emerald-400">{order.id}</span>
-                        <span className="text-xs text-slate-400 font-semibold">{formatTime(order.createdAt)}</span>
-                      </div>
-                      <div className="font-extrabold text-white text-sm mt-0.5">{order.customerName}</div>
-                      <div className="text-xs text-amber-400 font-bold">
-                        {order.deliveryType === 'delivery' ? '🛵 Saiu p/ Entrega' : '🛍️ Retirar no Balcão'}
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-slate-950 uppercase">
-                      PRONTO
-                    </span>
-                  </div>
+              readyOrders.map((order) => {
+                const isDelivery = order.deliveryType === 'delivery';
 
-                  <button
-                    onClick={() => updateOrderStatus(order.id, 'entregue')}
-                    className="w-full py-2 px-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center space-x-1"
+                return (
+                  <div
+                    key={order.id}
+                    className={`bg-slate-900 border-2 rounded-2xl p-4 shadow-xl space-y-3 ${
+                      isDelivery ? 'border-amber-500/60' : 'border-emerald-500/60'
+                    }`}
                   >
-                    <CheckCheck className="w-4 h-4 text-emerald-400" />
-                    <span>Concluir / Entregue</span>
-                  </button>
-                </div>
-              ))
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`text-base font-black ${isDelivery ? 'text-amber-400' : 'text-emerald-400'}`}>
+                            {order.id}
+                          </span>
+                          <span className="text-xs text-slate-400 font-semibold">{formatTime(order.createdAt)}</span>
+                        </div>
+                        <div className="font-extrabold text-white text-sm mt-0.5">{order.customerName}</div>
+                      </div>
+
+                      {/* Destino Badge */}
+                      <span className={`px-2.5 py-1 rounded-xl text-xs font-black shadow flex items-center space-x-1 ${
+                        isDelivery
+                          ? 'bg-amber-500 text-slate-950'
+                          : 'bg-emerald-500 text-slate-950'
+                      }`}>
+                        {isDelivery ? <Bike className="w-3.5 h-3.5" /> : <Store className="w-3.5 h-3.5" />}
+                        <span>{isDelivery ? 'P/ MOTOBOY' : 'P/ BALCÃO'}</span>
+                      </span>
+                    </div>
+
+                    {/* Endereço ou Local de Retirada */}
+                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs text-slate-300 flex items-start space-x-1.5">
+                      <MapPin className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${isDelivery ? 'text-amber-400' : 'text-emerald-400'}`} />
+                      <span className="font-medium">{order.address || 'Retirada no Balcão'}</span>
+                    </div>
+
+                    {/* Alternância de Destino de Última Hora */}
+                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800">
+                      <span className="text-slate-400">Mudou de ideia?</span>
+                      <button
+                        onClick={() => dispatchOrder(order.id, { deliveryType: isDelivery ? 'takeout' : 'delivery' })}
+                        className="text-amber-400 hover:underline font-bold flex items-center space-x-1"
+                        title="Alternar entre entrega com motoboy e retirada no balcão"
+                      >
+                        <ArrowRightLeft className="w-3 h-3" />
+                        <span>Mudar para {isDelivery ? 'Balcão 🛍️' : 'Motoboy 🛵'}</span>
+                      </button>
+                    </div>
+
+                    {/* Botões de Ação Final */}
+                    <div className="space-y-1.5 pt-1">
+                      {isDelivery ? (
+                        <button
+                          onClick={() => dispatchOrder(order.id, { status: 'saiu_para_entrega' })}
+                          className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md shadow-amber-500/20 flex items-center justify-center space-x-1.5 active:scale-95"
+                        >
+                          <Bike className="w-4 h-4 stroke-[2.5]" />
+                          <span>Despachar c/ Motoboy (Em Rota)</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => dispatchOrder(order.id, { status: 'entregue' })}
+                          className="w-full py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center space-x-1.5 active:scale-95"
+                        >
+                          <CheckCheck className="w-4 h-4 stroke-[2.5]" />
+                          <span>Entregar ao Cliente no Balcão</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => dispatchOrder(order.id, { status: 'entregue' })}
+                        className="w-full py-2 px-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white font-bold text-[11px] transition-all flex items-center justify-center space-x-1"
+                      >
+                        <Check className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Finalizar / Marcar Concluído</span>
+                      </button>
+                    </div>
+
+                  </div>
+                );
+              })
             )}
           </div>
 

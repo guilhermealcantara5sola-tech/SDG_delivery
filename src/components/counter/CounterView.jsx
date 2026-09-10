@@ -1,11 +1,22 @@
 import React, { useState } from 'react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency, formatTime, formatDateTime, STATUS_MAP, PAYMENT_METHODS } from '../../utils/formatters';
-import { Printer, CheckCircle2, AlertCircle, Clock, Search, Filter, Phone, MapPin, DollarSign, ChefHat, RefreshCw, Edit3, Bike } from 'lucide-react';
+import { Printer, CheckCircle2, AlertCircle, Clock, Search, Filter, Phone, MapPin, DollarSign, ChefHat, RefreshCw, Edit3, Bike, ShoppingBag, ArrowRightLeft } from 'lucide-react';
 import { OrderEditModal } from '../common/OrderEditModal';
 
 export const CounterView = () => {
-  const { orders, updateOrderStatus, triggerPrintTicket, editOrder, setCurrentView } = useOrder();
+  const {
+    orders,
+    updateOrderStatus,
+    triggerPrintTicket,
+    editOrder,
+    setCurrentView,
+    dispatchOrder,
+    printerSettings,
+    printerStatus,
+    checkPrinterConnection,
+    printTestTicket
+  } = useOrder();
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingOrder, setEditingOrder] = useState(null);
@@ -28,6 +39,12 @@ export const CounterView = () => {
     return saved !== null ? JSON.parse(saved) : true;
   });
 
+  // Auto-print counter/client ticket setting (persisted in localStorage)
+  const [autoPrintCounter, setAutoPrintCounter] = useState(() => {
+    const saved = localStorage.getItem('sdg_autoprint_counter');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
   const toggleAutoPrintKitchen = () => {
     setAutoPrintKitchen(prev => {
       const next = !prev;
@@ -36,13 +53,25 @@ export const CounterView = () => {
     });
   };
 
+  const toggleAutoPrintCounter = () => {
+    setAutoPrintCounter(prev => {
+      const next = !prev;
+      localStorage.setItem('sdg_autoprint_counter', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const handleConfirmPayment = (order) => {
     // 1. Confirm payment -> update status to 'pagamento_confirmado' (sends to kitchen)
     updateOrderStatus(order.id, 'pagamento_confirmado');
 
-    // 2. If auto-print kitchen option is checked, trigger kitchen ticket immediately!
-    if (autoPrintKitchen) {
+    // 2. Trigger print according to toggles:
+    if (autoPrintKitchen && autoPrintCounter) {
+      triggerPrintTicket(order, 'both');
+    } else if (autoPrintKitchen) {
       triggerPrintTicket(order, 'kitchen');
+    } else if (autoPrintCounter) {
+      triggerPrintTicket(order, 'counter');
     }
   };
 
@@ -63,17 +92,39 @@ export const CounterView = () => {
             </p>
           </div>
 
-          {/* Quick Metrics & Auto-Print Toggle */}
+          {/* Quick Metrics & Auto-Print Toggles */}
           <div className="flex flex-wrap items-center gap-3">
+            {/* Elgin i8 Network Status Badge */}
+            <div className="flex items-center space-x-2 px-3.5 py-2 rounded-2xl bg-slate-950 border border-slate-800 text-xs shadow-inner">
+              <span className={`w-2.5 h-2.5 rounded-full ${printerStatus?.online ? 'bg-emerald-400 animate-pulse' : printerStatus?.checking ? 'bg-amber-400 animate-ping' : 'bg-rose-500'}`}></span>
+              <div className="flex flex-col">
+                <div className="flex items-center space-x-1 font-bold text-white text-[11px]">
+                  <Printer className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Elgin i8 ({printerSettings?.ip || '192.168.1.150'})</span>
+                </div>
+                <span className="text-[10px] text-slate-400">
+                  {printerStatus?.online ? '🟢 Conectada na rede' : printerStatus?.checking ? 'Verificando...' : '🔴 Desconectada'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => printTestTicket()}
+                className="ml-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-lg text-[10px] font-bold transition-all"
+                title="Imprimir cupom de teste na impressora Elgin"
+              >
+                Testar
+              </button>
+            </div>
+
             {/* Auto-Print Kitchen Toggle */}
             <div
               onClick={toggleAutoPrintKitchen}
-              className={`flex items-center space-x-2.5 px-4 py-3 rounded-2xl border cursor-pointer select-none transition-all ${
+              className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl border cursor-pointer select-none transition-all ${
                 autoPrintKitchen
                   ? 'bg-amber-500/10 border-amber-500/40 text-amber-300'
                   : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
               }`}
-              title="Ao marcar, todo pagamento confirmado abrirá automaticamente a impressão da ficha da cozinha"
+              title="Ao marcar, o pagamento confirmado enviará a comanda da cozinha para a Elgin i8"
             >
               <input
                 type="checkbox"
@@ -84,10 +135,37 @@ export const CounterView = () => {
               <div className="text-xs font-bold">
                 <div className="flex items-center space-x-1">
                   <ChefHat className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Imprimir Cozinha Auto</span>
+                  <span>Auto Cozinha</span>
                 </div>
                 <div className="text-[10px] text-slate-400">
-                  {autoPrintKitchen ? '🟢 Ativado ao confirmar' : '⚪ Desativado'}
+                  {autoPrintKitchen ? '🟢 Ativado' : '⚪ Desativado'}
+                </div>
+              </div>
+            </div>
+
+            {/* Auto-Print Counter Toggle */}
+            <div
+              onClick={toggleAutoPrintCounter}
+              className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl border cursor-pointer select-none transition-all ${
+                autoPrintCounter
+                  ? 'bg-amber-500/10 border-amber-500/40 text-amber-300'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+              title="Ao marcar, o pagamento confirmado emitirá o cupom do balcão/cliente na Elgin i8"
+            >
+              <input
+                type="checkbox"
+                checked={autoPrintCounter}
+                onChange={toggleAutoPrintCounter}
+                className="w-4 h-4 rounded text-amber-500 bg-slate-900 border-slate-700 focus:ring-amber-500 cursor-pointer accent-amber-500"
+              />
+              <div className="text-xs font-bold">
+                <div className="flex items-center space-x-1">
+                  <Printer className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Auto Balcão</span>
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {autoPrintCounter ? '🟢 Ativado' : '⚪ Desativado'}
                 </div>
               </div>
             </div>
@@ -199,28 +277,46 @@ export const CounterView = () => {
                         className="w-full py-3 px-4 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 active:scale-95"
                       >
                         <CheckCircle2 className="w-4 h-4 stroke-[3]" />
-                        <span>Confirmar Pagto {autoPrintKitchen ? '+ Imprimir na Cozinha' : ''}</span>
+                        <span>
+                          Confirmar Pagto
+                          {autoPrintKitchen && autoPrintCounter
+                            ? ' + Imprimir Cozinha & Balcão'
+                            : autoPrintKitchen
+                            ? ' + Imprimir Cozinha'
+                            : autoPrintCounter
+                            ? ' + Imprimir Balcão'
+                            : ''}
+                        </span>
                       </button>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-1.5">
                         {/* Print Ticket Balcão */}
                         <button
                           onClick={() => triggerPrintTicket(order, 'counter')}
-                          className="py-2 px-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center space-x-1.5"
-                          title="Imprimir Cupom do Caixa / Cliente"
+                          className="py-2 px-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center space-x-1"
+                          title="Imprimir Cupom do Caixa / Cliente na Elgin i8"
                         >
-                          <Printer className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Cupom Balcão</span>
+                          <Printer className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span>Balcão</span>
                         </button>
 
                         {/* Print Ticket Kitchen */}
                         <button
                           onClick={() => triggerPrintTicket(order, 'kitchen')}
-                          className="py-2 px-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center space-x-1.5"
-                          title="Imprimir Ficha de Produção da Cozinha"
+                          className="py-2 px-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center space-x-1"
+                          title="Imprimir Comanda de Produção da Cozinha na Elgin i8"
                         >
-                          <ChefHat className="w-3.5 h-3.5 text-blue-400" />
-                          <span>Ficha Cozinha</span>
+                          <ChefHat className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                          <span>Cozinha</span>
+                        </button>
+
+                        {/* Print Both */}
+                        <button
+                          onClick={() => triggerPrintTicket(order, 'both')}
+                          className="py-2 px-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-xs hover:bg-amber-500 hover:text-slate-950 transition-all flex items-center justify-center space-x-1"
+                          title="Imprimir Ambos (Cozinha + Balcão) na Elgin i8"
+                        >
+                          <span>Ambos</span>
                         </button>
                       </div>
 
@@ -345,11 +441,11 @@ export const CounterView = () => {
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
 
-                            {/* Print Ticket */}
+                            {/* Print Ticket Balcão */}
                             <button
                               onClick={() => triggerPrintTicket(order, 'counter')}
                               className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all inline-flex items-center"
-                              title="Imprimir Comprovante Balcão"
+                              title="Imprimir Comprovante Balcão (Elgin i8)"
                             >
                               <Printer className="w-3.5 h-3.5" />
                             </button>
@@ -358,9 +454,18 @@ export const CounterView = () => {
                             <button
                               onClick={() => triggerPrintTicket(order, 'kitchen')}
                               className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 transition-all inline-flex items-center"
-                              title="Imprimir Ficha Cozinha"
+                              title="Imprimir Ficha Cozinha (Elgin i8)"
                             >
                               <ChefHat className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Print Both Tickets */}
+                            <button
+                              onClick={() => triggerPrintTicket(order, 'both')}
+                              className="px-2 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-slate-950 text-[10px] font-black transition-all inline-flex items-center"
+                              title="Imprimir Ambos na Elgin i8 (Cozinha + Balcão)"
+                            >
+                              Ambos
                             </button>
                           </td>
                         </tr>

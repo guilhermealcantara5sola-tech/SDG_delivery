@@ -41,10 +41,24 @@ export const getSupabaseClient = () => {
   if (!supabaseClient || currentConfigKey !== configKey) {
     currentConfigKey = configKey;
     supabaseClient = createClient(config.url, config.anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+      global: {
+        fetch: (url, options = {}) => {
+          // Timeout de 8 segundos para evitar travamentos caso o projeto esteja pausado
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 8000);
+          return fetch(url, { ...options, signal: controller.signal })
+            .finally(() => clearTimeout(timer));
+        }
+      },
       realtime: {
         params: {
           eventsPerSecond: 10
-        }
+        },
+        timeout: 8000
       }
     });
   }

@@ -2,19 +2,21 @@ import React, { useState, useEffect } from 'react';
 import {
   X, User, Phone, Key, MapPin, Award, ShoppingBag, RotateCcw,
   Sparkles, CheckCircle2, AlertCircle, LogOut, Edit3, ArrowRight,
-  Gift, Heart, Star, Check
+  Gift, Heart, Star, Check, Camera, Upload, Loader2
 } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import { fetchCustomerOrdersFromDb } from '../../services/orderService';
-import { formatCurrency, formatDateTime } from '../../utils/formatters';
+import { formatCurrency, formatDateTime, STATUS_MAP } from '../../utils/formatters';
+import { uploadMediaToSupabase } from '../../services/storageService';
 
-export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart }) => {
+export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart, onTrackOrder }) => {
   const {
     customer,
     loginCustomer,
     registerCustomer,
     logoutCustomer,
     updateCustomerAddress,
+    updateCustomerAvatar,
     reorder,
     orders
   } = useOrder();
@@ -31,6 +33,11 @@ export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart }) => {
   const [regPhone, setRegPhone] = useState('');
   const [regPin, setRegPin] = useState('');
   const [regAddress, setRegAddress] = useState('');
+  const [regAvatarUrl, setRegAvatarUrl] = useState('');
+
+  // Avatar upload states
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingRegAvatar, setUploadingRegAvatar] = useState(false);
 
   // Address edit state
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -40,6 +47,42 @@ export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart }) => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setErrorMsg('');
+    const res = await uploadMediaToSupabase(file, { folder: 'avatars', maxDim: 500 });
+    setUploadingAvatar(false);
+
+    if (res.url) {
+      await updateCustomerAvatar(res.url);
+      setSuccessMsg('Foto de perfil atualizada no Supabase com sucesso!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } else {
+      setErrorMsg('Falha ao enviar foto: ' + (res.error || 'Erro no upload'));
+    }
+  };
+
+  const handleRegAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingRegAvatar(true);
+    setErrorMsg('');
+    const res = await uploadMediaToSupabase(file, { folder: 'avatars', maxDim: 500 });
+    setUploadingRegAvatar(false);
+
+    if (res.url) {
+      setRegAvatarUrl(res.url);
+      setSuccessMsg('Foto carregada com sucesso!');
+      setTimeout(() => setSuccessMsg(''), 2500);
+    } else {
+      setErrorMsg('Falha ao enviar foto: ' + (res.error || 'Erro no upload'));
+    }
+  };
 
   // Customer order history
   const [customerOrders, setCustomerOrders] = useState([]);
@@ -119,7 +162,8 @@ export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart }) => {
       name: regName.trim(),
       phone: regPhone.trim(),
       pin: regPin.trim(),
-      address: regAddress.trim()
+      address: regAddress.trim(),
+      avatar_url: regAvatarUrl
     });
     setLoading(false);
 
@@ -188,14 +232,47 @@ export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart }) => {
               <div className="absolute top-0 right-0 -mr-6 -mt-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
               
               <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-slate-950/20 px-2 py-0.5 rounded-md text-slate-950">
-                    Membro VIP Delivery
-                  </span>
-                  <h3 className="text-xl font-black mt-1">Olá, {customer.name}!</h3>
-                  <p className="text-xs font-semibold opacity-90">{customer.phone}</p>
+                <div className="flex items-center space-x-3.5">
+                  {/* Customer Avatar with photo upload badge */}
+                  <div className="relative group shrink-0">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-950/20 border-2 border-slate-950/30 overflow-hidden flex items-center justify-center shadow-inner">
+                      {customer.avatar_url ? (
+                        <img
+                          src={customer.avatar_url}
+                          alt={customer.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-7 h-7 text-slate-950/70" />
+                      )}
+                    </div>
+                    <label
+                      title="Alterar foto de perfil"
+                      className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-slate-950 text-amber-400 border border-amber-400/50 flex items-center justify-center cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-md"
+                    >
+                      {uploadingAvatar ? (
+                        <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
+                      ) : (
+                        <Camera className="w-3 h-3" />
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarChange}
+                        disabled={uploadingAvatar}
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-slate-950/20 px-2 py-0.5 rounded-md text-slate-950">
+                      Membro VIP Delivery
+                    </span>
+                    <h3 className="text-xl font-black mt-1 leading-tight">Olá, {customer.name}!</h3>
+                    <p className="text-xs font-semibold opacity-90">{customer.phone}</p>
+                  </div>
                 </div>
-                <div className="w-10 h-10 rounded-2xl bg-slate-950/15 flex items-center justify-center font-black text-sm">
+                <div className="w-10 h-10 rounded-2xl bg-slate-950/15 flex items-center justify-center font-black text-sm shrink-0">
                   ⭐ {totalOrders}
                 </div>
               </div>
@@ -294,39 +371,63 @@ export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart }) => {
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  {customerOrders.slice(0, 5).map(order => (
-                    <div
-                      key={order.id}
-                      className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2 hover:border-slate-700 transition-all"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-extrabold text-amber-400 font-mono">
-                          #{order.id}
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          {formatDateTime(order.createdAt)}
-                        </span>
+                  {customerOrders.slice(0, 5).map(order => {
+                    const statusInfo = STATUS_MAP[order.status] || STATUS_MAP.aguardando_pagamento;
+                    const isActive = order.status !== 'entregue' && order.status !== 'cancelado';
+
+                    return (
+                      <div
+                        key={order.id}
+                        className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2 hover:border-slate-700 transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-extrabold text-amber-400 font-mono">
+                              #{order.id}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${statusInfo.color}`}>
+                              {statusInfo.shortLabel}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-500">
+                            {formatDateTime(order.createdAt)}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-slate-300 line-clamp-1">
+                          {order.items?.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+                        </p>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-900">
+                          <span className="text-xs font-black text-white">
+                            {formatCurrency(order.total)}
+                          </span>
+
+                          <div className="flex items-center space-x-2">
+                            {isActive && onTrackOrder && (
+                              <button
+                                onClick={() => {
+                                  onClose();
+                                  onTrackOrder(order);
+                                }}
+                                className="py-1.5 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500 text-blue-400 hover:text-white border border-blue-500/30 text-[11px] font-black transition-all flex items-center space-x-1"
+                              >
+                                <span>Acompanhar Ao Vivo</span>
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => handleReorderClick(order)}
+                              className="py-1.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-slate-950 border border-amber-500/30 text-[11px] font-black transition-all flex items-center space-x-1.5"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Pedir Novamente</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
-
-                      <p className="text-xs text-slate-300 line-clamp-1">
-                        {order.items?.map(i => `${i.quantity}x ${i.name}`).join(', ')}
-                      </p>
-
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-900">
-                        <span className="text-xs font-black text-white">
-                          {formatCurrency(order.total)}
-                        </span>
-
-                        <button
-                          onClick={() => handleReorderClick(order)}
-                          className="py-1.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-slate-950 border border-amber-500/30 text-[11px] font-black transition-all flex items-center space-x-1.5"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          <span>Pedir Novamente</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -457,6 +558,37 @@ export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart }) => {
             {/* FORM 2: REGISTER */}
             {authMode === 'register' && (
               <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
+                {/* Optional Avatar Upload */}
+                <div className="flex items-center space-x-3.5 p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                  <div className="relative w-12 h-12 rounded-2xl bg-slate-900 border border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+                    {regAvatarUrl ? (
+                      <img src={regAvatarUrl} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-6 h-6 text-slate-500" />
+                    )}
+                    {uploadingRegAvatar && (
+                      <div className="absolute inset-0 bg-slate-950/70 flex items-center justify-center">
+                        <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-white">Foto de Perfil (Opcional)</p>
+                    <p className="text-[11px] text-slate-400 mb-1">Carregue sua foto para o perfil VIP</p>
+                    <label className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 text-[11px] font-bold cursor-pointer transition-colors">
+                      <Upload className="w-3 h-3" />
+                      <span>{uploadingRegAvatar ? 'Enviando...' : regAvatarUrl ? 'Trocar Foto' : 'Escolher Foto'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleRegAvatarUpload}
+                        disabled={uploadingRegAvatar}
+                      />
+                    </label>
+                  </div>
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
                     Primeiro Nome *
