@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 export const MotoboyView = () => {
-  const { orders, updateOrderStatus, storeSettings, setCurrentView, sendMotoboyLocation } = useOrder();
+  const { orders, updateOrderStatus, storeSettings, setCurrentView, sendMotoboyLocation, editOrder } = useOrder();
 
   const [activeTab, setActiveTab] = useState('active'); // 'available' | 'active' | 'done'
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -93,17 +93,35 @@ export const MotoboyView = () => {
         };
         setCurrentCoords(coords);
 
+        const currentActiveOrder = inRouteOrders[0];
+
         if (sendMotoboyLocation) {
           sendMotoboyLocation({
             id: driverName,
             driverName,
-            orderId: inRouteOrders[0]?.id || '',
+            orderId: currentActiveOrder?.id || '',
             latitude: coords.latitude,
             longitude: coords.longitude,
             speed: coords.speed,
             heading: coords.heading,
             accuracy: coords.accuracy,
             isOnline: true
+          });
+        }
+
+        // Se houver pedido em rota, vincula o GPS diretamente ao pedido para sincronizar via Supabase
+        if (currentActiveOrder && editOrder) {
+          editOrder({
+            ...currentActiveOrder,
+            deliveryGps: {
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+              speed: coords.speed,
+              heading: coords.heading,
+              accuracy: coords.accuracy,
+              driverName,
+              updatedAt: new Date().toISOString()
+            }
           });
         }
       },
@@ -124,15 +142,16 @@ export const MotoboyView = () => {
     return () => {
       navigator.geolocation.clearWatch(watchId);
     };
-  }, [gpsEnabled, isOnline, simulationActive, driverName, inRouteOrders, sendMotoboyLocation]);
+  }, [gpsEnabled, isOnline, simulationActive, driverName, inRouteOrders, sendMotoboyLocation, editOrder]);
 
-  // Simulação de movimento para demonstração e testes no computador
+  // Simulação de movimento para demonstração e testes no computador (Centro de Almenara - MG)
   useEffect(() => {
     if (!simulationActive) return;
     setGpsStatus('simulating');
 
-    let lat = storeSettings?.latitude || -23.550520;
-    let lng = storeSettings?.longitude || -46.633308;
+    const isNearSP = storeSettings?.latitude && Math.abs(storeSettings.latitude - (-23.550520)) < 0.01;
+    let lat = storeSettings?.latitude && !isNearSP ? storeSettings.latitude : -16.1834;
+    let lng = storeSettings?.longitude && !isNearSP ? storeSettings.longitude : -40.6936;
     let step = 0;
 
     const interval = setInterval(() => {
@@ -152,11 +171,13 @@ export const MotoboyView = () => {
 
       setCurrentCoords(simCoords);
 
+      const currentActiveOrder = inRouteOrders[0];
+
       if (sendMotoboyLocation) {
         sendMotoboyLocation({
           id: driverName,
           driverName,
-          orderId: inRouteOrders[0]?.id || '',
+          orderId: currentActiveOrder?.id || '',
           latitude: lat,
           longitude: lng,
           speed: simulatedSpeed,
@@ -165,10 +186,25 @@ export const MotoboyView = () => {
           isOnline: true
         });
       }
+
+      if (currentActiveOrder && editOrder) {
+        editOrder({
+          ...currentActiveOrder,
+          deliveryGps: {
+            latitude: lat,
+            longitude: lng,
+            speed: simulatedSpeed,
+            heading: (step * 35) % 360,
+            accuracy: 5,
+            driverName,
+            updatedAt: new Date().toISOString()
+          }
+        });
+      }
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [simulationActive, driverName, inRouteOrders, sendMotoboyLocation, storeSettings]);
+  }, [simulationActive, driverName, inRouteOrders, sendMotoboyLocation, storeSettings, editOrder]);
 
   // Total a acertar no caixa em dinheiro (pedidos entregues em dinheiro)
   const cashToReconcile = completedOrders

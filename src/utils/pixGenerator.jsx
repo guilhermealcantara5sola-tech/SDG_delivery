@@ -80,7 +80,7 @@ export function calculateCRC16(payload) {
  * @param {string} params.pixKey - Chave Pix cadastrada
  * @param {string} [params.pixKeyType='phone'] - Tipo de chave ('phone'|'cpf'|'cnpj'|'email'|'random')
  * @param {string} [params.beneficiaryName='SDG DELIVERY'] - Nome do recebedor
- * @param {string} [params.city='SAO PAULO'] - Cidade do recebedor (max 15 chars)
+ * @param {string} [params.city='ALMENARA'] - Cidade do recebedor (max 15 chars)
  * @param {number|string} params.amount - Valor do pedido em Reais (ex: 45.90)
  * @param {string} [params.txid='***'] - Identificador da transação (ex: PED1001)
  * @param {string} [params.description] - Mensagem/descrição opcional
@@ -90,7 +90,7 @@ export function generatePixPayload({
   pixKey = '',
   pixKeyType = 'phone',
   beneficiaryName = 'SDG DELIVERY',
-  city = 'SAO PAULO',
+  city = 'ALMENARA',
   amount = 0,
   txid = '***',
   description = ''
@@ -113,7 +113,7 @@ export function generatePixPayload({
 
   // Normalização de campos textuais exigida pelo Banco Central
   const cleanName = sanitizeText(beneficiaryName || 'SDG DELIVERY', 25) || 'SDG DELIVERY';
-  const cleanCity = sanitizeText(city || 'SAO PAULO', 15) || 'SAO PAULO';
+  const cleanCity = sanitizeText(city || 'ALMENARA', 15) || 'ALMENARA';
   const cleanTxid = txid ? String(txid).replace(/[^a-zA-Z0-9]/g, '').slice(0, 25) : '***';
 
   try {

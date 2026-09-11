@@ -4,7 +4,7 @@ import {
   Monitor, ChefHat, ExternalLink, Copy, Check, Search, Phone,
   MapPin, Utensils, Award, ShieldCheck, CheckCircle2, MessageCircle,
   Plus, Edit3, Trash2, Eye, EyeOff, Printer, Clock, Filter, Sparkles, Palette,
-  Bike
+  Bike, Navigation
 } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import {
@@ -19,6 +19,7 @@ import { CustomerModalAdmin } from './CustomerModalAdmin';
 import { OrderEditModal } from '../common/OrderEditModal';
 import { StoreCustomizationAdmin } from './StoreCustomizationAdmin';
 import { PrinterSettingsAdmin } from './PrinterSettingsAdmin';
+import { MotoboyTrackingModal } from '../counter/MotoboyTrackingModal';
 
 export const AdminView = () => {
   const {
@@ -48,6 +49,7 @@ export const AdminView = () => {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
 
   const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sdg-delivery.vercel.app';
   const clientUrl = `${originUrl}/`;
@@ -195,6 +197,15 @@ export const AdminView = () => {
           </div>
 
           <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsTrackingModalOpen(true)}
+              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black shadow-md shadow-amber-500/20 transition-all cursor-pointer active:scale-95"
+              title="Abrir mapa de rastreamento de motoboys e pedidos em Almenara"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span>🗺️ Rastrear Motoboys & Pedidos</span>
+            </button>
+
             <div className="flex items-center space-x-2 px-3.5 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-sm">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <span>Banco Supabase Online</span>
@@ -961,6 +972,14 @@ export const AdminView = () => {
           onClose={() => setEditingOrder(null)}
           onSave={editOrder}
           onPrint={triggerPrintTicket}
+        />
+      )}
+
+      {/* Modal de Rastreamento de Motoboys e Pedidos */}
+      {isTrackingModalOpen && (
+        <MotoboyTrackingModal
+          isOpen={isTrackingModalOpen}
+          onClose={() => setIsTrackingModalOpen(false)}
         />
       )}
 

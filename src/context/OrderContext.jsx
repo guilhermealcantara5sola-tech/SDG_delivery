@@ -24,7 +24,9 @@ import {
   saveStoreSettingsToDb,
   updateMotoboyLocationInDb,
   fetchMotoboyLocationsFromDb,
-  subscribeToMotoboyLocationsRealtime
+  subscribeToMotoboyLocationsRealtime,
+  broadcastMotoboyLocation,
+  subscribeToMotoboyBroadcast
 } from '../services/orderService';
 import { applyThemeToDocument } from '../utils/theme';
 import {
@@ -58,20 +60,20 @@ export const DEFAULT_STORE_SETTINGS = {
   freeDeliveryThreshold: 80.00,
   bannerNotice: '🔥 PROMOÇÃO: Frete Grátis em pedidos acima de R$ 80!',
   showBannerNotice: true,
-  phoneSupport: '(11) 99999-8888',
-  whatsapp: '(11) 99999-8888',
+  phoneSupport: '(33) 99999-8888',
+  whatsapp: '(33) 99999-8888',
   whatsappMessage: 'Olá! Vim pelo cardápio digital e gostaria de tirar uma dúvida.',
   showFloatingWhatsApp: true,
   instagram: '@sdgdelivery',
-  address: 'Rua Principal do Delivery, 500 - Centro',
-  latitude: -23.550520,
-  longitude: -46.633308,
+  address: 'Centro, Almenara - MG',
+  latitude: -16.1834,
+  longitude: -40.6936,
   openingHours: 'Terça a Domingo: 18:00 às 23:30',
   // Configuração Oficial de Pagamento PIX (Banco Central / BRCode)
-  pixKey: '(11) 99999-8888',
+  pixKey: '(33) 99999-8888',
   pixKeyType: 'phone', // 'phone' | 'cpf' | 'cnpj' | 'email' | 'random'
-  pixBeneficiaryName: 'SDG Burger & Pizza',
-  pixCity: 'Sao Paulo',
+  pixBeneficiaryName: 'SDG Delivery Almenara',
+  pixCity: 'Almenara',
   pixEnabled: true
 };
 
@@ -197,6 +199,7 @@ export const OrderProvider = ({ children }) => {
     }
 
     if (isSupabaseConfigured()) {
+      broadcastMotoboyLocation(cleanData);
       updateMotoboyLocationInDb(cleanData).catch(console.warn);
     }
   };
@@ -240,7 +243,24 @@ export const OrderProvider = ({ children }) => {
   const [storeSettings, setStoreSettings] = useState(() => {
     try {
       const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
-      if (saved) return { ...DEFAULT_STORE_SETTINGS, ...JSON.parse(saved) };
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Se a latitude ainda for o padrão antigo de São Paulo, migra para Almenara - MG
+        if (!parsed.latitude || Math.abs(Number(parsed.latitude) - (-23.550520)) < 0.001) {
+          parsed.latitude = -16.1834;
+          parsed.longitude = -40.6936;
+          if (!parsed.address || parsed.address.includes('Rua Principal do Delivery') || parsed.address.includes('Sao Paulo')) {
+            parsed.address = 'Centro, Almenara - MG';
+          }
+          if (parsed.pixCity === 'Sao Paulo' || !parsed.pixCity) {
+            parsed.pixCity = 'Almenara';
+          }
+          try {
+            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...DEFAULT_STORE_SETTINGS, ...parsed }));
+          } catch (e) {}
+        }
+        return { ...DEFAULT_STORE_SETTINGS, ...parsed };
+      }
     } catch (e) {
       console.error(e);
     }
@@ -543,6 +563,27 @@ export const OrderProvider = ({ children }) => {
         playAlertSound('new_order');
       },
       onUpdate: (updatedOrder) => {
+        // Se o pedido trouxer coordenadas de entrega do motoboy, atualiza o mapa ao vivo
+        if (updatedOrder.deliveryGps && updatedOrder.deliveryGps.latitude) {
+          const gps = updatedOrder.deliveryGps;
+          const motoId = gps.driverName || 'Entregador';
+          setMotoboyLocations(prev => ({
+            ...prev,
+            [motoId]: {
+              id: motoId,
+              driverName: gps.driverName || 'Entregador',
+              orderId: updatedOrder.id,
+              latitude: Number(gps.latitude),
+              longitude: Number(gps.longitude),
+              speed: Number(gps.speed || 0),
+              heading: Number(gps.heading || 0),
+              accuracy: Number(gps.accuracy || 0),
+              isOnline: true,
+              updatedAt: gps.updatedAt || new Date().toISOString()
+            }
+          }));
+        }
+
         setOrders(prev => {
           const existing = prev.find(o => o.id === updatedOrder.id);
           if (existing && existing.status !== updatedOrder.status) {
@@ -604,8 +645,14 @@ export const OrderProvider = ({ children }) => {
       }
     });
 
-    // 4. Canal Realtime para Rastreamento GPS de Motoboys (motoboy_locations)
-    const unsubscribeMotoboy = subscribeToMotoboyLocationsRealtime((loc) => {
+    // 4. Canal Realtime para Rastreamento GPS de Motoboys (PostgreSQL + Broadcast WebSocket sem tabela)
+    const unsubscribeMotoboyDb = subscribeToMotoboyLocationsRealtime((loc) => {
+      if (loc && loc.id) {
+        setMotoboyLocations(prev => ({ ...prev, [loc.id]: loc }));
+      }
+    });
+
+    const unsubscribeMotoboyBroadcast = subscribeToMotoboyBroadcast((loc) => {
       if (loc && loc.id) {
         setMotoboyLocations(prev => ({ ...prev, [loc.id]: loc }));
       }
@@ -623,7 +670,8 @@ export const OrderProvider = ({ children }) => {
       if (typeof unsubscribeOrders === 'function') unsubscribeOrders();
       if (typeof unsubscribeSettings === 'function') unsubscribeSettings();
       if (typeof unsubscribeProducts === 'function') unsubscribeProducts();
-      if (typeof unsubscribeMotoboy === 'function') unsubscribeMotoboy();
+      if (typeof unsubscribeMotoboyDb === 'function') unsubscribeMotoboyDb();
+      if (typeof unsubscribeMotoboyBroadcast === 'function') unsubscribeMotoboyBroadcast();
     };
   }, [dbVersion, dbStatus]);
 

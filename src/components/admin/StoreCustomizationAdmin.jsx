@@ -3,7 +3,8 @@ import {
   Palette, Image, Sparkles, Check, Clock, DollarSign,
   Phone, MapPin, Store, AlertTriangle, Eye, Upload, CheckCircle2,
   Utensils, ExternalLink, MessageCircle, Sliders, Smartphone, Star,
-  Loader2, QrCode, Copy, ShieldCheck, Building2, User, Mail, Key
+  Loader2, QrCode, Copy, ShieldCheck, Building2, User, Mail, Key,
+  Navigation, Crosshair
 } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency } from '../../utils/formatters';
@@ -66,18 +67,20 @@ export const StoreCustomizationAdmin = () => {
     freeDeliveryThreshold: storeSettings?.freeDeliveryThreshold !== undefined ? String(storeSettings.freeDeliveryThreshold) : '80.00',
     bannerNotice: storeSettings?.bannerNotice || '🔥 PROMOÇÃO: Frete Grátis em pedidos acima de R$ 80!',
     showBannerNotice: storeSettings?.showBannerNotice !== false,
-    phoneSupport: storeSettings?.phoneSupport || '(11) 99999-8888',
-    whatsapp: storeSettings?.whatsapp || '(11) 99999-8888',
+    phoneSupport: storeSettings?.phoneSupport || '(33) 99999-8888',
+    whatsapp: storeSettings?.whatsapp || '(33) 99999-8888',
     whatsappMessage: storeSettings?.whatsappMessage || 'Olá! Vim pelo cardápio digital e gostaria de tirar uma dúvida.',
     showFloatingWhatsApp: storeSettings?.showFloatingWhatsApp !== false,
     instagram: storeSettings?.instagram || '@sdgdelivery',
-    address: storeSettings?.address || 'Rua Principal do Delivery, 500 - Centro',
+    address: storeSettings?.address || 'Centro, Almenara - MG',
+    latitude: storeSettings?.latitude !== undefined && Math.abs(Number(storeSettings.latitude) - (-23.550520)) > 0.01 ? String(storeSettings.latitude) : '-16.1834',
+    longitude: storeSettings?.longitude !== undefined && Math.abs(Number(storeSettings.longitude) - (-46.633308)) > 0.01 ? String(storeSettings.longitude) : '-40.6936',
     openingHours: storeSettings?.openingHours || 'Terça a Domingo: 18:00 às 23:30',
     // Configurações PIX Oficiais
-    pixKey: storeSettings?.pixKey || '(11) 99999-8888',
+    pixKey: storeSettings?.pixKey || '(33) 99999-8888',
     pixKeyType: storeSettings?.pixKeyType || 'phone',
     pixBeneficiaryName: storeSettings?.pixBeneficiaryName || storeSettings?.restaurantName || 'SDG Burger & Pizza',
-    pixCity: storeSettings?.pixCity || 'Sao Paulo',
+    pixCity: storeSettings?.pixCity && storeSettings.pixCity !== 'Sao Paulo' ? storeSettings.pixCity : 'Almenara',
     pixEnabled: storeSettings?.pixEnabled !== false
   });
 
@@ -142,15 +145,49 @@ export const StoreCustomizationAdmin = () => {
     }));
   };
 
+  const handleSetAlmenaraCoords = () => {
+    setFormData(prev => ({
+      ...prev,
+      address: 'Centro, Almenara - MG',
+      latitude: '-16.1834',
+      longitude: '-40.6936',
+      pixCity: 'Almenara'
+    }));
+  };
+
+  const handleGetDeviceCoords = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocalização não suportada');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setFormData(prev => ({
+          ...prev,
+          latitude: pos.coords.latitude.toFixed(6),
+          longitude: pos.coords.longitude.toFixed(6)
+        }));
+      },
+      err => {
+        alert('Não foi possível obter coordenadas via GPS');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const feeNum = parseFloat(String(formData.deliveryFee).replace(',', '.'));
     const freeNum = parseFloat(String(formData.freeDeliveryThreshold).replace(',', '.'));
+    const latNum = parseFloat(String(formData.latitude).replace(',', '.'));
+    const lngNum = parseFloat(String(formData.longitude).replace(',', '.'));
 
     updateStoreSettings({
       ...formData,
       deliveryFee: isNaN(feeNum) ? 7.00 : feeNum,
-      freeDeliveryThreshold: isNaN(freeNum) ? 0 : freeNum
+      freeDeliveryThreshold: isNaN(freeNum) ? 0 : freeNum,
+      latitude: isNaN(latNum) ? -16.1834 : latNum,
+      longitude: isNaN(lngNum) ? -40.6936 : lngNum
     });
 
     setSavedSuccess(true);
@@ -568,6 +605,59 @@ export const StoreCustomizationAdmin = () => {
                   placeholder="Ex: Terça a Domingo das 18h às 23h30"
                 />
               </div>
+            </div>
+
+            {/* Coordenadas GPS da Sede no Mapa (Almenara - MG) */}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 mt-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center space-x-2">
+                  <Navigation className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-extrabold text-white">Coordenadas GPS da Loja no Mapa</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={handleSetAlmenaraCoords}
+                    className="px-2.5 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold transition-all cursor-pointer"
+                  >
+                    📍 Definir Almenara - MG
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGetDeviceCoords}
+                    className="px-2.5 py-1 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[11px] font-bold transition-all cursor-pointer flex items-center space-x-1"
+                  >
+                    <Crosshair className="w-3 h-3" />
+                    <span>Usar Meu GPS</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1">Latitude</label>
+                  <input
+                    type="text"
+                    value={formData.latitude}
+                    onChange={e => setFormData({ ...formData, latitude: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 outline-none font-mono"
+                    placeholder="-16.1834"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1">Longitude</label>
+                  <input
+                    type="text"
+                    value={formData.longitude}
+                    onChange={e => setFormData({ ...formData, longitude: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 outline-none font-mono"
+                    placeholder="-40.6936"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500">
+                Ponto de partida exibido no mapa de rastreamento de motoboys e rotas de entrega. Padrão: Almenara, MG (-16.1834, -40.6936).
+              </p>
             </div>
           </div>
 

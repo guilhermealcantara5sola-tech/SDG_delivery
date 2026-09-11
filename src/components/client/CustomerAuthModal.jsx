@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   X, User, Phone, Key, MapPin, Award, ShoppingBag, RotateCcw,
   Sparkles, CheckCircle2, AlertCircle, LogOut, Edit3, ArrowRight,
-  Gift, Heart, Star, Check, Camera, Upload, Loader2
+  Gift, Heart, Star, Check, Camera, Upload, Loader2, Crosshair, Navigation
 } from 'lucide-react';
 import { useOrder } from '../../context/OrderContext';
 import { fetchCustomerOrdersFromDb } from '../../services/orderService';
 import { formatCurrency, formatDateTime, STATUS_MAP } from '../../utils/formatters';
 import { uploadMediaToSupabase } from '../../services/storageService';
+import { MotoboyTrackingModal } from '../counter/MotoboyTrackingModal';
 
 export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart, onTrackOrder }) => {
   const {
@@ -47,6 +48,29 @@ export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart, onTrackOrder })
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [isGettingGps, setIsGettingGps] = useState(false);
+
+  const handleGetGpsAddress = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocalização não suportada');
+      return;
+    }
+    setIsGettingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsGettingGps(false);
+        const lat = pos.coords.latitude.toFixed(5);
+        const lng = pos.coords.longitude.toFixed(5);
+        setRegAddress(prev => prev ? `${prev} (GPS: ${lat}, ${lng})` : `Centro, Almenara - MG (GPS: ${lat}, ${lng})`);
+      },
+      () => {
+        setIsGettingGps(false);
+        alert('Não foi possível obter sua localização via GPS. Verifique a permissão do navegador.');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
@@ -334,9 +358,19 @@ export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart, onTrackOrder })
               </div>
 
               {!isEditingAddress ? (
-                <p className="text-xs text-slate-400 font-medium">
-                  {customer.address || 'Nenhum endereço cadastrado ainda.'}
-                </p>
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-400 font-medium">
+                    {customer.address || 'Nenhum endereço cadastrado ainda.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowMapModal(true)}
+                    className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-amber-400 hover:text-amber-300 text-xs font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>🗺️ Ver Localização da Minha Conta no Mapa de Almenara</span>
+                  </button>
+                </div>
               ) : (
                 <input
                   type="text"
@@ -639,14 +673,25 @@ export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart, onTrackOrder })
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Endereço Completo de Entrega *
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Endereço Completo de Entrega *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleGetGpsAddress}
+                      disabled={isGettingGps}
+                      className="text-amber-400 hover:text-amber-300 text-[11px] font-bold flex items-center space-x-1 cursor-pointer"
+                    >
+                      <Crosshair className={`w-3 h-3 ${isGettingGps ? 'animate-spin' : ''}`} />
+                      <span>{isGettingGps ? 'Localizando...' : 'Usar Meu GPS'}</span>
+                    </button>
+                  </div>
                   <div className="relative">
                     <MapPin className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
                     <textarea
                       rows={2}
-                      placeholder="Rua, Número, Bairro e Complemento..."
+                      placeholder="Rua, Número, Bairro e Complemento em Almenara - MG..."
                       value={regAddress}
                       onChange={(e) => setRegAddress(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-600 focus:border-amber-500 outline-none resize-none"
@@ -669,6 +714,13 @@ export const CustomerAuthModal = ({ isOpen, onClose, onOpenCart, onTrackOrder })
         )}
 
       </div>
+
+      {showMapModal && (
+        <MotoboyTrackingModal
+          isOpen={showMapModal}
+          onClose={() => setShowMapModal(false)}
+        />
+      )}
     </div>
   );
 };

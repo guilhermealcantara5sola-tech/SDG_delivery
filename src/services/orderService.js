@@ -799,6 +799,53 @@ export const subscribeToMotoboyLocationsRealtime = (callback) => {
   }
 };
 
+/**
+ * Transmissão instantânea via WebSocket do Supabase Realtime (Broadcast).
+ * Funciona imediatamente em qualquer dispositivo (celular/computador) SEM depender de tabelas no banco!
+ */
+let broadcastTrackingChannel = null;
 
+export const broadcastMotoboyLocation = (locationData) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
 
+  try {
+    if (!broadcastTrackingChannel) {
+      broadcastTrackingChannel = supabase.channel('sdg-motoboy-broadcast');
+      broadcastTrackingChannel.subscribe();
+    }
+    broadcastTrackingChannel.send({
+      type: 'broadcast',
+      event: 'location_update',
+      payload: locationData
+    });
+  } catch (err) {
+    console.warn('Erro ao transmitir broadcast de localização:', err);
+  }
+};
 
+/**
+ * Assina o canal de broadcast instantâneo de localização dos motoboys.
+ */
+export const subscribeToMotoboyBroadcast = (callback) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  try {
+    const channel = supabase
+      .channel('sdg-motoboy-broadcast-listener')
+      .on('broadcast', { event: 'location_update' }, (response) => {
+        if (callback && response.payload) {
+          callback(response.payload);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  } catch (err) {
+    console.warn('Erro ao assinar canal broadcast de motoboys:', err);
+    return null;
+  }
+};
