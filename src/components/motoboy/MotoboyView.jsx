@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 export const MotoboyView = () => {
-  const { orders, updateOrderStatus, storeSettings, setCurrentView } = useOrder();
+  const { orders, updateOrderStatus, storeSettings, setCurrentView, sendMotoboyLocation } = useOrder();
 
   const [activeTab, setActiveTab] = useState('active'); // 'available' | 'active' | 'done'
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -20,6 +20,12 @@ export const MotoboyView = () => {
   });
   const [isEditingName, setIsEditingName] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+
+  // Rastreamento GPS
+  const [gpsEnabled, setGpsEnabled] = useState(true);
+  const [gpsStatus, setGpsStatus] = useState('idle'); // 'idle' | 'tracking' | 'denied' | 'simulating'
+  const [currentCoords, setCurrentCoords] = useState(null);
+  const [simulationActive, setSimulationActive] = useState(false);
 
   const saveDriverName = (name) => {
     const clean = name.trim() || 'Entregador';
@@ -48,6 +54,121 @@ export const MotoboyView = () => {
       } catch (e) {}
     }
   }, [availableOrders.length]);
+
+  // Screen Wake Lock API (mantém a tela acesa enquanto houver entregas em andamento)
+  useEffect(() => {
+    let wakeLock = null;
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator && isOnline && inRouteOrders.length > 0) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {}
+    };
+    requestWakeLock();
+    return () => {
+      if (wakeLock) wakeLock.release().catch(() => {});
+    };
+  }, [isOnline, inRouteOrders.length]);
+
+  // Rastreamento Geolocation nativo do navegador
+  useEffect(() => {
+    if (simulationActive) return; // Se estiver em teste simulado, não usa GPS real
+    if (!gpsEnabled || !isOnline || typeof window === 'undefined' || !navigator.geolocation) {
+      setGpsStatus('idle');
+      return;
+    }
+
+    setGpsStatus('tracking');
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const coords = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          speed: pos.coords.speed !== null && pos.coords.speed !== undefined ? Math.round(pos.coords.speed * 3.6) : 0,
+          heading: pos.coords.heading || 0,
+          accuracy: Math.round(pos.coords.accuracy || 0),
+          updatedAt: new Date().toISOString()
+        };
+        setCurrentCoords(coords);
+
+        if (sendMotoboyLocation) {
+          sendMotoboyLocation({
+            id: driverName,
+            driverName,
+            orderId: inRouteOrders[0]?.id || '',
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            speed: coords.speed,
+            heading: coords.heading,
+            accuracy: coords.accuracy,
+            isOnline: true
+          });
+        }
+      },
+      (err) => {
+        if (err.code === 1) {
+          setGpsStatus('denied');
+        } else {
+          setGpsStatus('error');
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 3000,
+        timeout: 10000
+      }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [gpsEnabled, isOnline, simulationActive, driverName, inRouteOrders, sendMotoboyLocation]);
+
+  // Simulação de movimento para demonstração e testes no computador
+  useEffect(() => {
+    if (!simulationActive) return;
+    setGpsStatus('simulating');
+
+    let lat = storeSettings?.latitude || -23.550520;
+    let lng = storeSettings?.longitude || -46.633308;
+    let step = 0;
+
+    const interval = setInterval(() => {
+      step += 1;
+      lat += (Math.sin(step / 2) * 0.0006);
+      lng += (Math.cos(step / 2) * 0.0007);
+      const simulatedSpeed = Math.round(28 + Math.random() * 12);
+
+      const simCoords = {
+        latitude: lat,
+        longitude: lng,
+        speed: simulatedSpeed,
+        heading: (step * 35) % 360,
+        accuracy: 5,
+        updatedAt: new Date().toISOString()
+      };
+
+      setCurrentCoords(simCoords);
+
+      if (sendMotoboyLocation) {
+        sendMotoboyLocation({
+          id: driverName,
+          driverName,
+          orderId: inRouteOrders[0]?.id || '',
+          latitude: lat,
+          longitude: lng,
+          speed: simulatedSpeed,
+          heading: (step * 35) % 360,
+          accuracy: 5,
+          isOnline: true
+        });
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [simulationActive, driverName, inRouteOrders, sendMotoboyLocation, storeSettings]);
 
   // Total a acertar no caixa em dinheiro (pedidos entregues em dinheiro)
   const cashToReconcile = completedOrders
@@ -179,8 +300,76 @@ export const MotoboyView = () => {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-4 space-y-5">
+      <main className="max-w-4xl mx-auto px-4 py-4 space-y-4">
         
+        {/* Banner de Rastreamento GPS ao Vivo */}
+        <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md transition-all ${
+          gpsStatus === 'tracking' || gpsStatus === 'simulating'
+            ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
+            : gpsStatus === 'denied'
+            ? 'bg-rose-950/40 border-rose-500/40 text-rose-200'
+            : 'bg-slate-900 border-slate-800 text-slate-300'
+        }`}>
+          <div className="flex items-center space-x-2.5">
+            <div className={`w-3 h-3 rounded-full ${
+              gpsStatus === 'tracking' || gpsStatus === 'simulating'
+                ? 'bg-emerald-400 animate-ping'
+                : 'bg-slate-600'
+            }`} />
+            <div>
+              <div className="flex items-center space-x-1.5 font-extrabold text-xs">
+                <span>
+                  {gpsStatus === 'tracking'
+                    ? '🛰️ GPS Ativo (Transmitindo localização ao Balcão)'
+                    : gpsStatus === 'simulating'
+                    ? '🛰️ GPS Simulado Ativo (Modo de Teste / Demonstração)'
+                    : gpsStatus === 'denied'
+                    ? '⚠️ Permissão de Localização negada no navegador'
+                    : '🛰️ Rastreamento GPS do Entregador'}
+                </span>
+              </div>
+              <div className="text-[11px] opacity-80 mt-0.5">
+                {currentCoords ? (
+                  <span>
+                    Lat: {currentCoords.latitude.toFixed(5)} | Lng: {currentCoords.longitude.toFixed(5)}
+                    {currentCoords.speed > 0 && ` • Vel: ${currentCoords.speed} km/h`}
+                    {currentCoords.accuracy > 0 && ` • Sinal: ±${currentCoords.accuracy}m`}
+                  </span>
+                ) : (
+                  <span>Sua localização aparecerá no mapa do caixa em tempo real.</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
+            <button
+              type="button"
+              onClick={() => setSimulationActive(!simulationActive)}
+              className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+                simulationActive
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 font-black'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+              }`}
+              title="Simula movimento da moto pelas ruas para você testar no mapa do computador"
+            >
+              {simulationActive ? 'Parar Teste GPS' : 'Simular Rota (Teste)'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setGpsEnabled(!gpsEnabled)}
+              className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+                gpsEnabled
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  : 'bg-slate-800 text-slate-400 border-slate-700'
+              }`}
+            >
+              {gpsEnabled ? 'GPS Ligado' : 'GPS Desligado'}
+            </button>
+          </div>
+        </div>
+
         {/* Resumo do Turno do Motoboy */}
         <div className="grid grid-cols-3 gap-2.5 bg-slate-900 border border-slate-800 p-3.5 rounded-3xl shadow-lg">
           <div className="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 text-center">

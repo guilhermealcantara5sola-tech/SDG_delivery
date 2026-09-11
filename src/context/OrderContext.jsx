@@ -21,7 +21,10 @@ import {
   toggleProductActiveInDb,
   updateCustomerInDb,
   fetchStoreSettingsFromDb,
-  saveStoreSettingsToDb
+  saveStoreSettingsToDb,
+  updateMotoboyLocationInDb,
+  fetchMotoboyLocationsFromDb,
+  subscribeToMotoboyLocationsRealtime
 } from '../services/orderService';
 import { applyThemeToDocument } from '../utils/theme';
 import {
@@ -38,6 +41,7 @@ const BROADCAST_CHANNEL_NAME = 'sdg_delivery_sync_channel';
 const LOCAL_STORAGE_KEY = 'sdg_delivery_orders_v1';
 const PRODUCTS_STORAGE_KEY = 'sdg_delivery_products_v1';
 const SETTINGS_STORAGE_KEY = 'sdg_delivery_settings_v1';
+const MOTOBOY_LOCATIONS_STORAGE_KEY = 'sdg_delivery_motoboy_locations_v1';
 
 export const DEFAULT_STORE_SETTINGS = {
   restaurantName: 'SDG Burger & Pizza',
@@ -60,6 +64,8 @@ export const DEFAULT_STORE_SETTINGS = {
   showFloatingWhatsApp: true,
   instagram: '@sdgdelivery',
   address: 'Rua Principal do Delivery, 500 - Centro',
+  latitude: -23.550520,
+  longitude: -46.633308,
   openingHours: 'Terça a Domingo: 18:00 às 23:30',
   // Configuração Oficial de Pagamento PIX (Banco Central / BRCode)
   pixKey: '(11) 99999-8888',
@@ -146,6 +152,54 @@ export const OrderProvider = ({ children }) => {
 
   const [cart, setCart] = useState([]);
   const [printTicket, setPrintTicket] = useState(null);
+
+  // Rastreamento GPS de Motoboys em Tempo Real
+  const [motoboyLocations, setMotoboyLocations] = useState(() => {
+    try {
+      const saved = localStorage.getItem(MOTOBOY_LOCATIONS_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const sendMotoboyLocation = (locData) => {
+    if (!locData || locData.latitude === undefined || locData.longitude === undefined) return;
+    const driverId = locData.id || locData.driverName || 'driver-1';
+    const cleanData = {
+      ...locData,
+      id: driverId,
+      driverName: locData.driverName || 'Entregador',
+      orderId: locData.orderId || '',
+      latitude: Number(locData.latitude),
+      longitude: Number(locData.longitude),
+      speed: Number(locData.speed || 0),
+      heading: Number(locData.heading || 0),
+      accuracy: Number(locData.accuracy || 0),
+      isOnline: locData.isOnline !== undefined ? locData.isOnline : true,
+      updatedAt: new Date().toISOString()
+    };
+
+    setMotoboyLocations(prev => {
+      const updated = { ...prev, [driverId]: cleanData };
+      try {
+        localStorage.setItem(MOTOBOY_LOCATIONS_STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    if (window.BroadcastChannel) {
+      try {
+        const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+        channel.postMessage({ type: 'SYNC_MOTOBOY_LOCATION', data: cleanData });
+        channel.close();
+      } catch (e) {}
+    }
+
+    if (isSupabaseConfigured()) {
+      updateMotoboyLocationInDb(cleanData).catch(console.warn);
+    }
+  };
 
   // Configurações e status da Impressora Elgin i8 (192.168.1.150:9100)
   const [printerSettings, setPrinterSettings] = useState(() => getPrinterSettings());
@@ -379,6 +433,11 @@ export const OrderProvider = ({ children }) => {
           playAlertSound('new_order');
         } else if (event.data && event.data.type === 'SYNC_SETTINGS') {
           setStoreSettings(event.data.data);
+        } else if (event.data && event.data.type === 'SYNC_MOTOBOY_LOCATION') {
+          const loc = event.data.data;
+          if (loc && loc.id) {
+            setMotoboyLocations(prev => ({ ...prev, [loc.id]: loc }));
+          }
         }
       };
     }
@@ -393,6 +452,12 @@ export const OrderProvider = ({ children }) => {
       } else if (e.key === SETTINGS_STORAGE_KEY && e.newValue) {
         try {
           setStoreSettings(JSON.parse(e.newValue));
+        } catch (err) {
+          console.error(err);
+        }
+      } else if (e.key === MOTOBOY_LOCATIONS_STORAGE_KEY && e.newValue) {
+        try {
+          setMotoboyLocations(JSON.parse(e.newValue));
         } catch (err) {
           console.error(err);
         }
@@ -539,10 +604,26 @@ export const OrderProvider = ({ children }) => {
       }
     });
 
+    // 4. Canal Realtime para Rastreamento GPS de Motoboys (motoboy_locations)
+    const unsubscribeMotoboy = subscribeToMotoboyLocationsRealtime((loc) => {
+      if (loc && loc.id) {
+        setMotoboyLocations(prev => ({ ...prev, [loc.id]: loc }));
+      }
+    });
+
+    fetchMotoboyLocationsFromDb().then(res => {
+      if (res.data && res.data.length > 0) {
+        const map = {};
+        res.data.forEach(d => { map[d.id] = d; });
+        setMotoboyLocations(prev => ({ ...prev, ...map }));
+      }
+    }).catch(console.warn);
+
     return () => {
       if (typeof unsubscribeOrders === 'function') unsubscribeOrders();
       if (typeof unsubscribeSettings === 'function') unsubscribeSettings();
       if (typeof unsubscribeProducts === 'function') unsubscribeProducts();
+      if (typeof unsubscribeMotoboy === 'function') unsubscribeMotoboy();
     };
   }, [dbVersion, dbStatus]);
 
@@ -637,6 +718,67 @@ export const OrderProvider = ({ children }) => {
     if (isSupabaseConfigured()) {
       insertOrderInDb(newOrder).catch(err => {
         console.warn('Aviso: Erro ao persistir pedido no Supabase, salvo localmente:', err);
+      });
+    }
+
+    return newOrder;
+  };
+
+  // Lançamento de pedido diretamente pelo Balcão / Frente de Caixa (PDV)
+  const createCounterOrder = (orderData) => {
+    let orderNum = Math.floor(1000 + Math.random() * 9000);
+    let orderId = `PED-${orderNum}`;
+    while (orders.some(o => o.id === orderId)) {
+      orderNum = Math.floor(1000 + Math.random() * 9000);
+      orderId = `PED-${orderNum}`;
+    }
+
+    const items = (orderData.items || []).map(item => {
+      const unit = Number(item.unitPriceWithExtras || item.price) || 0;
+      const qty = Number(item.quantity) || 1;
+      return {
+        ...item,
+        quantity: qty,
+        unitPriceWithExtras: unit,
+        subtotal: item.subtotal !== undefined ? Number(item.subtotal) : unit * qty
+      };
+    });
+
+    const itemsSubtotal = items.reduce((acc, it) => acc + it.subtotal, 0);
+    const isDelivery = orderData.deliveryType === 'delivery';
+    const isFree = storeSettings.freeDeliveryThreshold > 0 && itemsSubtotal >= storeSettings.freeDeliveryThreshold;
+    const deliveryFee = isDelivery ? (isFree ? 0 : (Number(storeSettings.deliveryFee) || 7.00)) : 0;
+    const total = itemsSubtotal + deliveryFee;
+
+    const targetStatus = orderData.status || 'pagamento_confirmado';
+
+    const newOrder = {
+      id: orderId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      customerName: orderData.customerName?.trim() || 'Cliente Balcão',
+      customerPhone: orderData.customerPhone?.trim() || '',
+      deliveryType: orderData.deliveryType || 'takeout',
+      address: isDelivery ? (orderData.address?.trim() || 'Endereço a confirmar') : 'Retirada no Balcão',
+      paymentMethod: orderData.paymentMethod || 'cash',
+      status: targetStatus,
+      total,
+      observation: orderData.observation?.trim() || '',
+      items
+    };
+
+    const updatedOrders = [newOrder, ...orders.filter(o => o.id !== newOrder.id)];
+    saveAndSyncOrders(updatedOrders);
+
+    if (targetStatus === 'pagamento_confirmado') {
+      playAlertSound('new_order');
+    } else {
+      playAlertSound('confirm');
+    }
+
+    if (isSupabaseConfigured()) {
+      insertOrderInDb(newOrder).catch(err => {
+        console.warn('Aviso: Erro ao persistir pedido do balcão no Supabase:', err);
       });
     }
 
@@ -856,6 +998,7 @@ export const OrderProvider = ({ children }) => {
       updateCartQuantity,
       clearCart,
       createOrder,
+      createCounterOrder,
       updateOrderStatus,
       dispatchOrder,
       editOrder,
@@ -869,6 +1012,7 @@ export const OrderProvider = ({ children }) => {
       checkPrinterConnection,
       printTestTicket,
       printerToast,
+      showPrinterToast,
       closePrinterToast: () => setPrinterToast(null),
       // Database state & triggers
       dbStatus,
@@ -892,7 +1036,11 @@ export const OrderProvider = ({ children }) => {
       reorder,
       // Store Settings & Personalização do Cardápio
       storeSettings,
-      updateStoreSettings
+      updateStoreSettings,
+      // Rastreamento GPS de Motoboys em Tempo Real
+      motoboyLocations,
+      motoboyList: Object.values(motoboyLocations),
+      sendMotoboyLocation
     }}>
       {children}
     </OrderContext.Provider>

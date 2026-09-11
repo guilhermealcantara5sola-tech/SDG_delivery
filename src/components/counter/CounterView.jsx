@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { useOrder } from '../../context/OrderContext';
 import { formatCurrency, formatTime, formatDateTime, STATUS_MAP, PAYMENT_METHODS } from '../../utils/formatters';
-import { Printer, CheckCircle2, AlertCircle, Clock, Search, Filter, Phone, MapPin, DollarSign, ChefHat, RefreshCw, Edit3, Bike, ShoppingBag, ArrowRightLeft, QrCode, X } from 'lucide-react';
+import { Printer, CheckCircle2, AlertCircle, Clock, Search, Filter, Phone, MapPin, DollarSign, ChefHat, RefreshCw, Edit3, Bike, ShoppingBag, ArrowRightLeft, QrCode, X, Plus, Navigation } from 'lucide-react';
 import { OrderEditModal } from '../common/OrderEditModal';
 import { PixPaymentCard } from '../common/PixPaymentCard';
+import { CounterNewOrderModal } from './CounterNewOrderModal';
+import { MotoboyTrackingModal } from './MotoboyTrackingModal';
 
 export const CounterView = () => {
   const {
     orders,
+    createCounterOrder,
     updateOrderStatus,
     triggerPrintTicket,
     editOrder,
@@ -17,12 +20,40 @@ export const CounterView = () => {
     printerStatus,
     checkPrinterConnection,
     printTestTicket,
-    storeSettings
+    storeSettings,
+    showPrinterToast,
+    motoboyLocations,
+    motoboyList
   } = useOrder();
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingOrder, setEditingOrder] = useState(null);
   const [pixOrderModal, setPixOrderModal] = useState(null);
+  const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
+  const [isTrackingMapOpen, setIsTrackingMapOpen] = useState(false);
+  const [selectedTrackOrder, setSelectedTrackOrder] = useState(null);
+
+  const handleLaunchCounterOrder = (orderPayload, targetStatus) => {
+    const createdOrder = createCounterOrder(orderPayload);
+
+    if (targetStatus === 'pagamento_confirmado') {
+      if (autoPrintKitchen && autoPrintCounter) {
+        triggerPrintTicket(createdOrder, 'both');
+      } else if (autoPrintKitchen) {
+        triggerPrintTicket(createdOrder, 'kitchen');
+      } else if (autoPrintCounter) {
+        triggerPrintTicket(createdOrder, 'counter');
+      }
+
+      if (showPrinterToast) {
+        showPrinterToast(`🚀 Pedido #${createdOrder.id} lançado na Linha de Produção!`, 'success');
+      }
+    } else {
+      if (showPrinterToast) {
+        showPrinterToast(`⏳ Pedido #${createdOrder.id} registrado (Aguardando Pagamento)`, 'info');
+      }
+    }
+  };
 
   // Pending payments (waiting counter confirmation)
   const pendingOrders = orders.filter(o => o.status === 'aguardando_pagamento');
@@ -91,12 +122,22 @@ export const CounterView = () => {
             </div>
             <h1 className="text-3xl font-extrabold text-white">Gestão de Pedidos & Pagamentos</h1>
             <p className="text-slate-400 text-sm mt-1">
-              Confirme o pagamento dos clientes para liberar a comanda automaticamente para a cozinha.
+              Lance novos pedidos no balcão ou confirme o pagamento para enviar comandas à linha de produção da cozinha.
             </p>
           </div>
 
           {/* Quick Metrics & Auto-Print Toggles */}
           <div className="flex flex-wrap items-center gap-3">
+            {/* Botão Principal: Lançar Novo Pedido Balcão -> Cozinha */}
+            <button
+              type="button"
+              onClick={() => setIsNewOrderModalOpen(true)}
+              className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-95 cursor-pointer"
+              title="Lançar um novo pedido no balcão diretamente para a Linha de Produção da cozinha"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              <span>+ Lançar Pedido Balcão</span>
+            </button>
             {/* Elgin i8 Network Status Badge */}
             <div className="flex items-center space-x-2 px-3.5 py-2 rounded-2xl bg-slate-950 border border-slate-800 text-xs shadow-inner">
               <span className={`w-2.5 h-2.5 rounded-full ${printerStatus?.online ? 'bg-emerald-400 animate-pulse' : printerStatus?.checking ? 'bg-amber-400 animate-ping' : 'bg-rose-500'}`}></span>
@@ -187,11 +228,28 @@ export const CounterView = () => {
 
             <button
               onClick={() => setCurrentView('motoboy')}
-              className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500 hover:text-slate-950 font-bold text-xs transition-all shadow-md"
+              className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500 hover:text-slate-950 font-bold text-xs transition-all shadow-md cursor-pointer"
               title="Abrir a tela de entregas dos motoboys"
             >
               <Bike className="w-4 h-4" />
               <span>Painel Motoboy</span>
+            </button>
+
+            {/* Botão Rastreamento GPS / Mapa ao Vivo */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedTrackOrder(null);
+                setIsTrackingMapOpen(true);
+              }}
+              className="flex items-center space-x-2 px-4 py-3 rounded-2xl bg-blue-500/15 border border-blue-500/40 text-blue-300 hover:bg-blue-500 hover:text-white font-bold text-xs transition-all shadow-md cursor-pointer relative"
+              title="Abrir mapa de rastreamento de motoboys em tempo real"
+            >
+              <Navigation className="w-4 h-4 text-emerald-400" />
+              <span>Mapa GPS</span>
+              {motoboyList && motoboyList.length > 0 && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping absolute top-2 right-2"></span>
+              )}
             </button>
           </div>
         </div>
@@ -277,11 +335,12 @@ export const CounterView = () => {
                       {/* Confirm Payment & Send to Kitchen */}
                       <button
                         onClick={() => handleConfirmPayment(order)}
-                        className="w-full py-3 px-4 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 active:scale-95"
+                        className="w-full py-3 px-4 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 active:scale-95 cursor-pointer"
+                        title="Confirmar pagamento e enviar comanda imediatamente para a linha de produção da cozinha"
                       >
-                        <CheckCircle2 className="w-4 h-4 stroke-[3]" />
+                        <ChefHat className="w-4 h-4 stroke-[2.5]" />
                         <span>
-                          Confirmar Pagto
+                          Confirmar Pagto & Lançar na Produção
                           {autoPrintKitchen && autoPrintCounter
                             ? ' + Imprimir Cozinha & Balcão'
                             : autoPrintKitchen
@@ -448,10 +507,43 @@ export const CounterView = () => {
                           </td>
 
                           <td className="p-4 text-center space-x-1.5 whitespace-nowrap">
+                            {/* Botão de Ação Rápida: Lançar na Linha de Produção */}
+                            {order.status === 'aguardando_pagamento' && (
+                              <button
+                                onClick={() => handleConfirmPayment(order)}
+                                className="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 text-[10px] font-black transition-all inline-flex items-center space-x-1 border border-emerald-500/30 cursor-pointer"
+                                title="Confirmar pagamento e enviar pedido diretamente para a Linha de Produção da cozinha"
+                              >
+                                <ChefHat className="w-3.5 h-3.5" />
+                                <span>Lançar Produção</span>
+                              </button>
+                            )}
+
+                            {(order.status === 'pagamento_confirmado' || order.status === 'em_preparo') && (
+                              <span className="px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold inline-flex items-center space-x-1">
+                                <ChefHat className="w-3 h-3" />
+                                <span>Na Produção</span>
+                              </span>
+                            )}
+
+                            {order.status === 'saiu_para_entrega' && (
+                              <button
+                                onClick={() => {
+                                  setSelectedTrackOrder(order);
+                                  setIsTrackingMapOpen(true);
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 text-[10px] font-black transition-all inline-flex items-center space-x-1 border border-emerald-500/30 cursor-pointer"
+                                title="Rastrear localização do motoboy no mapa em tempo real"
+                              >
+                                <Navigation className="w-3.5 h-3.5" />
+                                <span>Rastrear GPS</span>
+                              </button>
+                            )}
+
                             {/* Edit Order */}
                             <button
                               onClick={() => setEditingOrder(order)}
-                              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 transition-all inline-flex items-center"
+                              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 transition-all inline-flex items-center cursor-pointer"
                               title="Editar Itens ou Dados do Pedido"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
@@ -460,7 +552,7 @@ export const CounterView = () => {
                             {/* Print Ticket Balcão */}
                             <button
                               onClick={() => triggerPrintTicket(order, 'counter')}
-                              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all inline-flex items-center"
+                              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all inline-flex items-center cursor-pointer"
                               title="Imprimir Comprovante Balcão (Elgin i8)"
                             >
                               <Printer className="w-3.5 h-3.5" />
@@ -469,7 +561,7 @@ export const CounterView = () => {
                             {/* Print Kitchen Ticket */}
                             <button
                               onClick={() => triggerPrintTicket(order, 'kitchen')}
-                              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 transition-all inline-flex items-center"
+                              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 transition-all inline-flex items-center cursor-pointer"
                               title="Imprimir Ficha Cozinha (Elgin i8)"
                             >
                               <ChefHat className="w-3.5 h-3.5" />
@@ -478,7 +570,7 @@ export const CounterView = () => {
                             {/* Print Both Tickets */}
                             <button
                               onClick={() => triggerPrintTicket(order, 'both')}
-                              className="px-2 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-slate-950 text-[10px] font-black transition-all inline-flex items-center"
+                              className="px-2 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-slate-950 text-[10px] font-black transition-all inline-flex items-center cursor-pointer"
                               title="Imprimir Ambos na Elgin i8 (Cozinha + Balcão)"
                             >
                               Ambos
@@ -506,6 +598,23 @@ export const CounterView = () => {
           onPrint={triggerPrintTicket}
         />
       )}
+
+      {/* Modal de Lançamento de Novo Pedido no Balcão -> Linha de Produção */}
+      <CounterNewOrderModal
+        isOpen={isNewOrderModalOpen}
+        onClose={() => setIsNewOrderModalOpen(false)}
+        onLaunchOrder={handleLaunchCounterOrder}
+      />
+
+      {/* Modal de Rastreamento GPS de Motoboys em Tempo Real */}
+      <MotoboyTrackingModal
+        isOpen={isTrackingMapOpen}
+        onClose={() => {
+          setIsTrackingMapOpen(false);
+          setSelectedTrackOrder(null);
+        }}
+        targetOrderId={selectedTrackOrder?.id}
+      />
 
       {/* Modal de Exibição do QR Code PIX no Balcão */}
       {pixOrderModal && (

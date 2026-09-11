@@ -117,6 +117,34 @@ export const OrderEditModal = ({ isOpen, order, onClose, onSave, onPrint }) => {
     onClose();
   };
 
+  const handleSaveAndLaunch = () => {
+    if (items.length === 0) {
+      return alert('O pedido precisa ter pelo menos um item. Adicione um produto antes de salvar.');
+    }
+    if (!customerName.trim()) {
+      return alert('Por favor, informe o nome do cliente.');
+    }
+
+    const updatedOrder = {
+      ...order,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      deliveryType,
+      address: deliveryType === 'delivery' ? (address.trim() || 'Endereço a confirmar') : 'Retirada no Balcão',
+      paymentMethod,
+      status: 'pagamento_confirmado', // Lança diretamente na linha de produção da cozinha
+      observation: observation.trim(),
+      items,
+      total: currentTotal
+    };
+
+    onSave(updatedOrder);
+    if (onPrint) {
+      onPrint(updatedOrder, 'kitchen');
+    }
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
@@ -438,17 +466,26 @@ export const OrderEditModal = ({ isOpen, order, onClose, onSave, onPrint }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all"
+              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20 flex items-center space-x-1.5"
+              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-all border border-slate-700 flex items-center space-x-1.5 cursor-pointer"
             >
-              <Check className="w-4 h-4 stroke-[3]" />
+              <Check className="w-4 h-4" />
               <span>Salvar Alterações</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAndLaunch}
+              className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20 flex items-center space-x-1.5 cursor-pointer"
+              title="Salvar alterações e enviar comanda imediatamente para a Linha de Produção da cozinha"
+            >
+              <ChefHat className="w-4 h-4 stroke-[2.5]" />
+              <span>Lançar na Produção</span>
             </button>
           </div>
         </div>

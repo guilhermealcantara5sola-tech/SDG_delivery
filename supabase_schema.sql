@@ -262,3 +262,32 @@ values
     )
   )
 on conflict (id) do nothing;
+
+-- ==============================================================================
+-- 10. TABELA DE RASTREAMENTO GPS DOS MOTOBOYS (motoboy_locations)
+-- ==============================================================================
+create table if not exists public.motoboy_locations (
+  id text primary key,
+  driver_name text not null,
+  order_id text default '',
+  latitude double precision not null,
+  longitude double precision not null,
+  speed double precision default 0,
+  heading double precision default 0,
+  accuracy double precision default 0,
+  is_online boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.motoboy_locations enable row level security;
+drop policy if exists "allow_all_motoboy_locations" on public.motoboy_locations;
+create policy "allow_all_motoboy_locations" on public.motoboy_locations for all using (true) with check (true);
+
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table public.motoboy_locations;
+  exception when others then null;
+  end;
+end $$;
+

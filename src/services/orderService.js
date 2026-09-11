@@ -694,5 +694,111 @@ export const saveStoreSettingsToDb = async (settings) => {
   }
 };
 
+/**
+ * Salva ou atualiza a localização GPS de um motoboy no Supabase.
+ */
+export const updateMotoboyLocationInDb = async (locationData) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { success: false, error: null };
+
+  try {
+    const id = locationData.id || locationData.driverName || 'driver-1';
+    const { data, error } = await supabase
+      .from('motoboy_locations')
+      .upsert({
+        id,
+        driver_name: locationData.driverName || 'Entregador',
+        order_id: locationData.orderId || '',
+        latitude: Number(locationData.latitude),
+        longitude: Number(locationData.longitude),
+        speed: Number(locationData.speed || 0),
+        heading: Number(locationData.heading || 0),
+        accuracy: Number(locationData.accuracy || 0),
+        is_online: locationData.isOnline !== undefined ? locationData.isOnline : true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+
+    if (error) throw error;
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error };
+  }
+};
+
+/**
+ * Busca todas as localizações de motoboys registradas no Supabase.
+ */
+export const fetchMotoboyLocationsFromDb = async () => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { data: [], error: null };
+
+  try {
+    const { data, error } = await supabase
+      .from('motoboy_locations')
+      .select('*')
+      .order('updated_at', { ascending: false });
+
+    if (error) return { data: [], error };
+    return {
+      data: (data || []).map(row => ({
+        id: row.id,
+        driverName: row.driver_name,
+        orderId: row.order_id,
+        latitude: Number(row.latitude),
+        longitude: Number(row.longitude),
+        speed: Number(row.speed || 0),
+        heading: Number(row.heading || 0),
+        accuracy: Number(row.accuracy || 0),
+        isOnline: row.is_online,
+        updatedAt: row.updated_at
+      })),
+      error: null
+    };
+  } catch (error) {
+    return { data: [], error };
+  }
+};
+
+/**
+ * Assina mudanças em tempo real na tabela de localizações dos motoboys.
+ */
+export const subscribeToMotoboyLocationsRealtime = (callback) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  try {
+    const channel = supabase
+      .channel('motoboy-locations-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'motoboy_locations' },
+        (payload) => {
+          if (callback && payload.new) {
+            callback({
+              id: payload.new.id,
+              driverName: payload.new.driver_name,
+              orderId: payload.new.order_id,
+              latitude: Number(payload.new.latitude),
+              longitude: Number(payload.new.longitude),
+              speed: Number(payload.new.speed || 0),
+              heading: Number(payload.new.heading || 0),
+              accuracy: Number(payload.new.accuracy || 0),
+              isOnline: payload.new.is_online,
+              updatedAt: payload.new.updated_at
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  } catch (e) {
+    return null;
+  }
+};
+
+
 
 
