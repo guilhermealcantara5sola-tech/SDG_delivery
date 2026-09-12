@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "printer": "node printer-server.js",
+    "app:motoboy": "npm --prefix sdg-motoboy-app start",
     "build": "vite build",
     "preview": "vite preview"
   },
