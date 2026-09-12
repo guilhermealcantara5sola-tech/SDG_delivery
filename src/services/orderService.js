@@ -29,7 +29,9 @@ export const mapRowToOrder = (row) => {
     status: row.status || 'aguardando_pagamento',
     total: Number(row.total) || 0,
     observation: row.observation || '',
-    items: parsedItems
+    items: parsedItems,
+    deliveryGps: row.delivery_gps || row.deliveryGps || null,
+    customerGps: row.customer_gps || row.customerGps || null,
   };
 };
 
@@ -49,7 +51,9 @@ export const mapOrderToRow = (order) => {
     status: order.status || 'aguardando_pagamento',
     total: order.total,
     observation: order.observation || '',
-    items: order.items || []
+    items: order.items || [],
+    delivery_gps: order.deliveryGps || null,
+    customer_gps: order.customerGps || null,
   };
 };
 
@@ -695,6 +699,29 @@ export const saveStoreSettingsToDb = async (settings) => {
 };
 
 /**
+ * Atualiza especificamente as coordenadas GPS da entrega em um pedido no Supabase.
+ */
+export const updateOrderDeliveryGpsInDb = async (orderId, deliveryGps) => {
+  const supabase = getSupabaseClient();
+  if (!supabase || !orderId) return { success: false, error: null };
+
+  try {
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        delivery_gps: deliveryGps,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', orderId);
+
+    if (error) throw error;
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error };
+  }
+};
+
+/**
  * Salva ou atualiza a localização GPS de um motoboy no Supabase.
  */
 export const updateMotoboyLocationInDb = async (locationData) => {
@@ -801,20 +828,36 @@ export const subscribeToMotoboyLocationsRealtime = (callback) => {
 
 /**
  * Transmissão instantânea via WebSocket do Supabase Realtime (Broadcast).
- * Funciona imediatamente em qualquer dispositivo (celular/computador) SEM depender de tabelas no banco!
+ * Funciona imediatamente em qualquer dispositivo (celular/computador/app nativo) SEM depender de tabelas no banco!
  */
-let broadcastTrackingChannel = null;
+const BROADCAST_CHANNEL_NAME = 'sdg-motoboy-broadcast';
+let sharedBroadcastChannel = null;
+
+const getSharedBroadcastChannel = (supabase) => {
+  if (!sharedBroadcastChannel) {
+    sharedBroadcastChannel = supabase.channel(BROADCAST_CHANNEL_NAME);
+  }
+  return sharedBroadcastChannel;
+};
 
 export const broadcastMotoboyLocation = (locationData) => {
   const supabase = getSupabaseClient();
   if (!supabase) return;
 
   try {
-    if (!broadcastTrackingChannel) {
-      broadcastTrackingChannel = supabase.channel('sdg-motoboy-broadcast');
-      broadcastTrackingChannel.subscribe();
-    }
-    broadcastTrackingChannel.send({
+    const channel = getSharedBroadcastChannel(supabase);
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channel.send({
+          type: 'broadcast',
+          event: 'location_update',
+          payload: locationData
+        });
+      }
+    });
+
+    // Se já estiver conectado/inscrito, envia imediatamente
+    channel.send({
       type: 'broadcast',
       event: 'location_update',
       payload: locationData
@@ -826,23 +869,28 @@ export const broadcastMotoboyLocation = (locationData) => {
 
 /**
  * Assina o canal de broadcast instantâneo de localização dos motoboys.
+ * Escuta no MESMO tópico 'sdg-motoboy-broadcast' transmitido pelo app e pelo web!
  */
 export const subscribeToMotoboyBroadcast = (callback) => {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
 
   try {
-    const channel = supabase
-      .channel('sdg-motoboy-broadcast-listener')
+    const channel = getSharedBroadcastChannel(supabase);
+    channel
       .on('broadcast', { event: 'location_update' }, (response) => {
         if (callback && response.payload) {
           callback(response.payload);
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('📡 Conectado ao canal Realtime Broadcast de Motoboys');
+        }
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      // Mantém conexão estável
     };
   } catch (err) {
     console.warn('Erro ao assinar canal broadcast de motoboys:', err);

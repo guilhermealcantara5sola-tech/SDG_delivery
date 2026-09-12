@@ -4,9 +4,13 @@ import { createClient } from '@supabase/supabase-js';
 const STORAGE_URL_KEY = 'sdg_supabase_url';
 const STORAGE_ANON_KEY = 'sdg_supabase_anon_key';
 
+// Default fallback credentials (same as configured in Supabase & mobile app)
+export const DEFAULT_SUPABASE_URL = 'https://xefvhpunadboqfibbefo.supabase.co';
+export const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_jMT1I0AlK7UfHlP1mquu9g_btqHeum_';
+
 /**
  * Retrieves the current Supabase URL and Anon Key.
- * Priority: localStorage (manual setup via Admin UI) > Vite import.meta.env
+ * Priority: localStorage (manual setup via Admin UI) > Vite import.meta.env > DEFAULT fallback
  */
 export const getSupabaseConfig = () => {
   const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -15,13 +19,13 @@ export const getSupabaseConfig = () => {
   const localUrl = typeof window !== 'undefined' ? (localStorage.getItem(STORAGE_URL_KEY) || '') : '';
   const localAnonKey = typeof window !== 'undefined' ? (localStorage.getItem(STORAGE_ANON_KEY) || '') : '';
 
-  const url = (localUrl || envUrl).trim();
-  const anonKey = (localAnonKey || envAnonKey).trim();
+  const url = (localUrl || envUrl || DEFAULT_SUPABASE_URL).trim();
+  const anonKey = (localAnonKey || envAnonKey || DEFAULT_SUPABASE_ANON_KEY).trim();
 
   return {
     url,
     anonKey,
-    source: localUrl ? 'browser_storage' : (envUrl ? 'env' : 'none'),
+    source: localUrl ? 'browser_storage' : (envUrl ? 'env' : 'default'),
     isConfigured: Boolean(url && anonKey && url.startsWith('http'))
   };
 };

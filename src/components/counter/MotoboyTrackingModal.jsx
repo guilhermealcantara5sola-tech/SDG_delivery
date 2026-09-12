@@ -17,8 +17,9 @@ export const MotoboyTrackingModal = ({ isOpen, onClose, targetDriverId, targetOr
   const markersRef = useRef({});
   const storeMarkerRef = useRef(null);
   const userGpsMarkerRef = useRef(null);
+  const routePolylineRef = useRef(null);
 
-  const [activeTab, setActiveTab] = useState('motoboys'); // 'motoboys' | 'orders'
+  const [activeTab, setActiveTab] = useState(targetOrderId ? 'orders' : 'motoboys'); // 'motoboys' | 'orders'
   const [selectedDriverId, setSelectedDriverId] = useState(targetDriverId || null);
   const [selectedOrderId, setSelectedOrderId] = useState(targetOrderId || null);
   const [userCoords, setUserCoords] = useState(null);
@@ -38,14 +39,37 @@ export const MotoboyTrackingModal = ({ isOpen, onClose, targetDriverId, targetOr
     return deliveryOrders.filter(o => o.status === 'saiu_para_entrega');
   }, [deliveryOrders]);
 
-  // List of active motoboys with locations
+  // List of active motoboys with locations (combines direct motoboy signal + order deliveryGps)
   const activeMotoboys = useMemo(() => {
-    const list = Object.values(motoboyLocations || {});
-    return list.filter(m => m && m.latitude && m.longitude);
-  }, [motoboyLocations]);
+    const map = { ...(motoboyLocations || {}) };
+
+    // Sincroniza também qualquer entregador ativo que tenha transmitido GPS no pedido
+    inRouteOrders.forEach(o => {
+      if (o.deliveryGps && o.deliveryGps.latitude && o.deliveryGps.longitude) {
+        const id = o.deliveryGps.driverName || 'Entregador';
+        if (!map[id] || new Date(o.deliveryGps.updatedAt || 0) > new Date(map[id].updatedAt || 0)) {
+          map[id] = {
+            id,
+            driverName: id,
+            orderId: o.id,
+            latitude: Number(o.deliveryGps.latitude),
+            longitude: Number(o.deliveryGps.longitude),
+            speed: Number(o.deliveryGps.speed || 0),
+            heading: Number(o.deliveryGps.heading || 0),
+            accuracy: Number(o.deliveryGps.accuracy || 0),
+            isOnline: true,
+            updatedAt: o.deliveryGps.updatedAt || o.updatedAt || new Date().toISOString()
+          };
+        }
+      }
+    });
+
+    return Object.values(map).filter(m => m && m.latitude && m.longitude);
+  }, [motoboyLocations, inRouteOrders]);
 
   // Stable coordinate generator for order address around Almenara downtown
   const getOrderCoords = (order) => {
+    if (!order) return [storeLat, storeLng];
     if (order.customerGps?.latitude && order.customerGps?.longitude) {
       return [Number(order.customerGps.latitude), Number(order.customerGps.longitude)];
     }
@@ -120,6 +144,10 @@ export const MotoboyTrackingModal = ({ isOpen, onClose, targetDriverId, targetOr
   // Clean up on modal close
   useEffect(() => {
     if (!isOpen && mapInstanceRef.current) {
+      if (routePolylineRef.current) {
+        routePolylineRef.current.remove();
+        routePolylineRef.current = null;
+      }
       mapInstanceRef.current.remove();
       mapInstanceRef.current = null;
       markersRef.current = {};
@@ -127,6 +155,88 @@ export const MotoboyTrackingModal = ({ isOpen, onClose, targetDriverId, targetOr
       userGpsMarkerRef.current = null;
     }
   }, [isOpen]);
+
+  // Sincroniza e focaliza o pedido ou entregador selecionado ao abrir ou atualizar
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (targetOrderId) {
+      setSelectedOrderId(targetOrderId);
+      setActiveTab('orders');
+
+      const order = deliveryOrders.find(o => o.id === targetOrderId);
+      if (order && mapInstanceRef.current) {
+        const destCoords = getOrderCoords(order);
+        const moto = activeMotoboys.find(m => m.orderId === targetOrderId || m.driverName === order.deliveryGps?.driverName);
+
+        const timer = setTimeout(() => {
+          if (!mapInstanceRef.current) return;
+          if (moto && moto.latitude && moto.longitude) {
+            setSelectedDriverId(moto.id);
+            const bounds = L.latLngBounds([
+              [moto.latitude, moto.longitude],
+              destCoords
+            ]);
+            mapInstanceRef.current.fitBounds(bounds, { padding: [70, 70], maxZoom: 17 });
+          } else {
+            mapInstanceRef.current.flyTo(destCoords, 16, { duration: 1 });
+          }
+        }, 350);
+
+        return () => clearTimeout(timer);
+      }
+    } else if (targetDriverId) {
+      setSelectedDriverId(targetDriverId);
+      setActiveTab('motoboys');
+      const moto = activeMotoboys.find(m => m.id === targetDriverId);
+      if (moto && mapInstanceRef.current && moto.latitude && moto.longitude) {
+        const timer = setTimeout(() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.flyTo([moto.latitude, moto.longitude], 16, { duration: 1 });
+          }
+        }, 350);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isOpen, targetOrderId, targetDriverId, deliveryOrders, activeMotoboys]);
+
+  // Linha de rota ao vivo conectando o motoboy ao endereço do cliente
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const activeOrder = selectedOrderId
+      ? deliveryOrders.find(o => o.id === selectedOrderId)
+      : deliveryOrders.find(o => o.status === 'saiu_para_entrega' && activeMotoboys.some(m => m.orderId === o.id || m.driverName === o.deliveryGps?.driverName));
+
+    if (activeOrder) {
+      const destCoords = getOrderCoords(activeOrder);
+      const moto = activeMotoboys.find(m => m.orderId === activeOrder.id || m.driverName === activeOrder.deliveryGps?.driverName);
+
+      if (moto && moto.latitude && moto.longitude) {
+        const startCoords = [moto.latitude, moto.longitude];
+
+        if (routePolylineRef.current) {
+          routePolylineRef.current.setLatLngs([startCoords, destCoords]);
+        } else {
+          routePolylineRef.current = L.polyline([startCoords, destCoords], {
+            color: '#10b981',
+            weight: 4,
+            opacity: 0.85,
+            dashArray: '8, 8',
+            lineCap: 'round',
+            lineJoin: 'round'
+          }).addTo(map);
+        }
+        return;
+      }
+    }
+
+    if (routePolylineRef.current) {
+      map.removeLayer(routePolylineRef.current);
+      routePolylineRef.current = null;
+    }
+  }, [selectedOrderId, selectedDriverId, activeMotoboys, deliveryOrders, storeLat, storeLng]);
 
   // Update Motoboy Markers on Map
   useEffect(() => {

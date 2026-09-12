@@ -108,22 +108,6 @@ export const MotoboyView = () => {
             isOnline: true
           });
         }
-
-        // Se houver pedido em rota, vincula o GPS diretamente ao pedido para sincronizar via Supabase
-        if (currentActiveOrder && editOrder) {
-          editOrder({
-            ...currentActiveOrder,
-            deliveryGps: {
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-              speed: coords.speed,
-              heading: coords.heading,
-              accuracy: coords.accuracy,
-              driverName,
-              updatedAt: new Date().toISOString()
-            }
-          });
-        }
       },
       (err) => {
         if (err.code === 1) {
@@ -184,21 +168,6 @@ export const MotoboyView = () => {
           heading: (step * 35) % 360,
           accuracy: 5,
           isOnline: true
-        });
-      }
-
-      if (currentActiveOrder && editOrder) {
-        editOrder({
-          ...currentActiveOrder,
-          deliveryGps: {
-            latitude: lat,
-            longitude: lng,
-            speed: simulatedSpeed,
-            heading: (step * 35) % 360,
-            accuracy: 5,
-            driverName,
-            updatedAt: new Date().toISOString()
-          }
         });
       }
     }, 3000);

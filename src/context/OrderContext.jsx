@@ -23,6 +23,7 @@ import {
   fetchStoreSettingsFromDb,
   saveStoreSettingsToDb,
   updateMotoboyLocationInDb,
+  updateOrderDeliveryGpsInDb,
   fetchMotoboyLocationsFromDb,
   subscribeToMotoboyLocationsRealtime,
   broadcastMotoboyLocation,
@@ -201,6 +202,19 @@ export const OrderProvider = ({ children }) => {
     if (isSupabaseConfigured()) {
       broadcastMotoboyLocation(cleanData);
       updateMotoboyLocationInDb(cleanData).catch(console.warn);
+
+      // Se houver pedido ativo, sincroniza as coordenadas na coluna delivery_gps do pedido
+      if (cleanData.orderId) {
+        updateOrderDeliveryGpsInDb(cleanData.orderId, {
+          latitude: cleanData.latitude,
+          longitude: cleanData.longitude,
+          speed: cleanData.speed,
+          heading: cleanData.heading,
+          accuracy: cleanData.accuracy,
+          driverName: cleanData.driverName,
+          updatedAt: cleanData.updatedAt
+        }).catch(console.warn);
+      }
     }
   };
 

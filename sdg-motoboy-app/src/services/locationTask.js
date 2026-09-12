@@ -34,6 +34,15 @@ const notifyLocationListeners = (coords) => {
   });
 };
 
+let mobileBroadcastChannel = null;
+const getMobileBroadcastChannel = (supabase) => {
+  if (!mobileBroadcastChannel) {
+    mobileBroadcastChannel = supabase.channel('sdg-motoboy-broadcast');
+    mobileBroadcastChannel.subscribe();
+  }
+  return mobileBroadcastChannel;
+};
+
 /**
  * Transmite a localização para o Supabase (Banco de dados e Canal Realtime)
  */
@@ -69,15 +78,11 @@ export const transmitLocation = async (coords) => {
 
     // 1. Broadcast instantâneo no WebSocket Realtime
     try {
-      const channel = supabase.channel('sdg-motoboy-broadcast');
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          channel.send({
-            type: 'broadcast',
-            event: 'location_update',
-            payload: cleanCoords,
-          });
-        }
+      const channel = getMobileBroadcastChannel(supabase);
+      channel.send({
+        type: 'broadcast',
+        event: 'location_update',
+        payload: cleanCoords,
       });
     } catch (broadcastErr) {
       console.warn('Falha no broadcast realtime:', broadcastErr);
